@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-source /opt/ros/jazzy/setup.bash
-if [[ -f /home/noob/omni-pi/src/ros2_ws/install/setup.bash ]]; then
-  source /home/noob/omni-pi/src/ros2_ws/install/setup.bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/omni_env.sh"
+
+source_ros
+activate_venv
+
+installed_bridge="${OMNI_ROS_WS}/install/omni_bridge/lib/omni_bridge/can_bridge"
+
+if [[ ! -x "${installed_bridge}" ]]; then
+  echo "Missing installed bridge executable: ${installed_bridge}" >&2
+  echo "Build the workspace first: ${OMNI_HOME}/install/build-workspace.sh" >&2
+  exit 1
 fi
 
-export PYTHONPATH=/home/noob/omni-pi/src:${PYTHONPATH:-}
-
-exec /home/noob/omni-pi/.venv_ros/bin/python   /home/noob/omni-pi/src/ros2_ws/build/omni_bridge/omni_bridge/can_bridge_node.py   --ros-args   --params-file /home/noob/omni-pi/src/ros2_ws/src/omni_bridge/config/omni_bridge.params.yaml
+exec "${OMNI_VENV}/bin/python" "${installed_bridge}" \
+  --ros-args \
+  --params-file "${OMNI_BRIDGE_PARAMS}"

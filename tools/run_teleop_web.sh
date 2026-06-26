@@ -9,4 +9,4 @@ unset AMENT_TRACE_SETUP_FILES || true
 source_ros
 activate_venv
 
-exec python "${OMNI_HOME}/tools/cmd_mux_node.py"
+exec python "${OMNI_HOME}/teleop_web/app.py"

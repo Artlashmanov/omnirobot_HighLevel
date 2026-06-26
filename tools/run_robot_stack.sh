@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-source /opt/ros/jazzy/setup.bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/omni_env.sh"
 
-exec ros2 launch /home/noob/omni-pi/launch/omni_robot.launch.py
+source_ros
+activate_venv
+
+exec ros2 launch "${OMNI_HOME}/launch/omni_robot.launch.py" \
+  params_file:="${OMNI_BRIDGE_PARAMS}"

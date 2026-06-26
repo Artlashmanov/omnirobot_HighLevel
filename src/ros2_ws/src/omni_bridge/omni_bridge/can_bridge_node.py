@@ -3,6 +3,7 @@ import threading
 import time
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
@@ -333,11 +334,11 @@ def main(args=None):
     node = OmniCanBridgeNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
+        node.destroy_node()
         if rclpy.ok():
-            node.destroy_node()
             rclpy.shutdown()
 
 

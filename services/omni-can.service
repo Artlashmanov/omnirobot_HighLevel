@@ -1,14 +1,14 @@
 [Unit]
-Description=Bring up SocketCAN can0 for Omni Robot
+Description=Bring up SocketCAN CAN interface for Omni Robot
 After=network-pre.target
 Before=omni-bridge.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/ip link set can0 down
-ExecStart=/usr/sbin/ip link set can0 up type can bitrate 500000
+EnvironmentFile=-/etc/omni-robot/omni.env
+ExecStart=/bin/bash -lc '. /etc/omni-robot/omni.env 2>/dev/null || true; /usr/sbin/ip link set "${CAN_IFACE:-can0}" down 2>/dev/null || true; exec /usr/sbin/ip link set "${CAN_IFACE:-can0}" up type can bitrate "${CAN_BITRATE:-500000}"'
+ExecStop=/bin/bash -lc '. /etc/omni-robot/omni.env 2>/dev/null || true; /usr/sbin/ip link set "${CAN_IFACE:-can0}" down 2>/dev/null || true'
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-

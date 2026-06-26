@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Shared runtime environment for omnirobot Pi5 scripts.
+# Defaults are suitable for the current live robot; /etc/omni-robot/omni.env can override them.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_OMNI_HOME="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+OMNI_ENV_FILE="${OMNI_ENV_FILE:-/etc/omni-robot/omni.env}"
+if [[ -f "${OMNI_ENV_FILE}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${OMNI_ENV_FILE}"
+  set +a
+fi
+
+export OMNI_HOME="${OMNI_HOME:-${DEFAULT_OMNI_HOME}}"
+export OMNI_USER="${OMNI_USER:-noob}"
+export ROS_DISTRO="${ROS_DISTRO:-jazzy}"
+export CAN_IFACE="${CAN_IFACE:-can0}"
+export CAN_BITRATE="${CAN_BITRATE:-500000}"
+export TELEOP_HOST="${TELEOP_HOST:-0.0.0.0}"
+export TELEOP_PORT="${TELEOP_PORT:-8080}"
+export OMNI_ROS_WS="${OMNI_ROS_WS:-${OMNI_HOME}/src/ros2_ws}"
+export OMNI_VENV="${OMNI_VENV:-${OMNI_HOME}/.venv_ros}"
+export OMNI_BRIDGE_PARAMS="${OMNI_BRIDGE_PARAMS:-${OMNI_ROS_WS}/src/omni_bridge/config/omni_bridge.params.yaml}"
+export LIDAR_SERIAL_PORT="${LIDAR_SERIAL_PORT:-/dev/rplidar}"
+export LIDAR_FALLBACK_SERIAL_PORT="${LIDAR_FALLBACK_SERIAL_PORT:-/dev/ttyUSB0}"
+export LIDAR_SERIAL_BAUDRATE="${LIDAR_SERIAL_BAUDRATE:-460800}"
+export LIDAR_FRAME_ID="${LIDAR_FRAME_ID:-laser}"
+
+with_nounset_disabled() {
+  local restore_nounset=0
+  case "$-" in
+    *u*)
+      restore_nounset=1
+      set +u
+      ;;
+  esac
+
+  "$@"
+
+  if [[ "${restore_nounset}" -eq 1 ]]; then
+    set -u
+  fi
+}
+
+source_ros_impl() {
+  # shellcheck disable=SC1090
+  source "/opt/ros/${ROS_DISTRO}/setup.bash"
+  if [[ -f "${OMNI_ROS_WS}/install/setup.bash" ]]; then
+    # shellcheck disable=SC1090
+    source "${OMNI_ROS_WS}/install/setup.bash"
+  fi
+}
+
+source_ros() {
+  with_nounset_disabled source_ros_impl
+}
+
+activate_venv_impl() {
+  if [[ -f "${OMNI_VENV}/bin/activate" ]]; then
+    # shellcheck disable=SC1090
+    source "${OMNI_VENV}/bin/activate"
+  fi
+}
+
+activate_venv() {
+  with_nounset_disabled activate_venv_impl
+}
+
+export PYTHONPATH="${OMNI_HOME}/src:${PYTHONPATH:-}"

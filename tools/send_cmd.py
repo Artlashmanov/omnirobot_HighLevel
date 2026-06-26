@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import sys
 from omni_pi.can_transport import CanTransport
 from omni_pi.protocol import make_ping, make_stop, make_motion, make_status_req, MotionMode
@@ -16,14 +17,14 @@ mode_map = {
 def main():
     if len(sys.argv) < 2:
         print("usage:")
-        print("  python /home/noob/omni-pi/tools/send_cmd.py ping")
-        print("  python /home/noob/omni-pi/tools/send_cmd.py stop")
-        print("  python /home/noob/omni-pi/tools/send_cmd.py status")
-        print("  python /home/noob/omni-pi/tools/send_cmd.py motion <mode> <speed>")
+        print("  python tools/send_cmd.py ping")
+        print("  python tools/send_cmd.py stop")
+        print("  python tools/send_cmd.py status")
+        print("  python tools/send_cmd.py motion <mode> <speed>")
         sys.exit(1)
 
     cmd = sys.argv[1]
-    tx = CanTransport("can0")
+    tx = CanTransport(os.environ.get("CAN_IFACE", "can0"))
 
     try:
         if cmd == "ping":
@@ -34,7 +35,7 @@ def main():
             msg = make_status_req(seq=1)
         elif cmd == "motion":
             if len(sys.argv) < 4:
-                print("usage: python /home/noob/omni-pi/tools/send_cmd.py motion <mode> <speed>")
+                print("usage: python tools/send_cmd.py motion <mode> <speed>")
                 sys.exit(1)
             mode_name = sys.argv[2]
             speed = int(sys.argv[3])

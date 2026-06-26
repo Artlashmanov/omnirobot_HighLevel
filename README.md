@@ -23,6 +23,12 @@ Default target path on the robot:
 /home/noob/omni-pi
 ```
 
+Runtime service config is read from:
+
+```bash
+/etc/omni-robot/omni.env
+```
+
 Default SSH user on the current robot:
 
 ```bash
@@ -105,3 +111,16 @@ See [docs/recovery.md](docs/recovery.md) before using this on a completely fresh
 ## Hardware note
 
 LIDAR and RealSense D415 are not required for the base/CAN/teleop layer. Connect them when working on lidar service, SLAM, navigation, or perception. The current base telemetry and command stack can be developed and tested with only CAN connected.
+
+
+## Runtime model
+
+The systemd units do not run Python files out of `src/ros2_ws/build`. They call small scripts in `tools/`, and those scripts:
+
+1. load `/etc/omni-robot/omni.env`;
+2. source ROS2 Jazzy;
+3. source the workspace `install/` overlay;
+4. activate `.venv_ros`;
+5. launch installed ROS executables from `install/` using the project virtualenv where needed, for example the CAN bridge executable.
+
+This keeps build artifacts disposable and makes a fresh Pi install reproducible.

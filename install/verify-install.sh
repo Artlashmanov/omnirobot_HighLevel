@@ -1,20 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROS_DISTRO="${ROS_DISTRO:-jazzy}"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${PROJECT_DIR}/tools/omni_env.sh"
 
-source "/opt/ros/${ROS_DISTRO}/setup.bash"
-if [[ -f "${PROJECT_DIR}/src/ros2_ws/install/setup.bash" ]]; then
-  source "${PROJECT_DIR}/src/ros2_ws/install/setup.bash"
-fi
+source_ros
+activate_venv
+
+echo "== runtime config =="
+echo "OMNI_HOME=${OMNI_HOME}"
+echo "OMNI_ROS_WS=${OMNI_ROS_WS}"
+echo "OMNI_BRIDGE_PARAMS=${OMNI_BRIDGE_PARAMS}"
+echo "CAN_IFACE=${CAN_IFACE}"
+echo "CAN_BITRATE=${CAN_BITRATE}"
 
 echo "== systemd =="
 systemctl is-enabled omni-can.service omni-bridge.service omni-mux.service teleop-web.service || true
 systemctl is-active omni-can.service omni-bridge.service omni-mux.service teleop-web.service || true
 
+echo "== service exec commands =="
+systemctl show -p ExecStart omni-bridge.service omni-mux.service teleop-web.service --no-pager || true
+
 echo "== CAN =="
-ip -details -statistics link show can0 || true
+ip -details -statistics link show "${CAN_IFACE}" || true
 
 echo "== ROS2 nodes =="
 timeout 8 ros2 node list || true
@@ -22,5 +31,12 @@ timeout 8 ros2 node list || true
 echo "== ROS2 topics =="
 timeout 8 ros2 topic list -t || true
 
-echo "== Base telemetry sample =="
-timeout 3 candump can0,190:7FF,191:7FF || true
+echo "== Bridge executable =="
+ros2 pkg executables omni_bridge || true
+
+echo "== Base telemetry topics =="
+timeout 8 ros2 topic echo --once /omni/base_status || true
+timeout 8 ros2 topic echo --once /omni/wheel_states || true
+
+echo "== Base CAN sample =="
+timeout 3 candump "${CAN_IFACE},190:7FF,191:7FF" || true

@@ -6,10 +6,11 @@ Wants=network.target
 [Service]
 Type=simple
 User=noob
-WorkingDirectory=/home/noob/omni-pi/src/ros2_ws
-ExecStart=/home/noob/omni-pi/tools/run_lidar.sh
+EnvironmentFile=-/etc/omni-robot/omni.env
+ExecStart=/bin/bash -lc 'exec "${OMNI_HOME:-/home/noob/omni-pi}/tools/run_lidar.sh"'
 Restart=always
-RestartSec=2
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target

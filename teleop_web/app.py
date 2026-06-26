@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import copy
 import json
+import os
 import threading
 import time
 from flask import Flask, jsonify, render_template, request
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import String
 
@@ -185,8 +187,15 @@ def api_state():
     })
 
 
+def get_web_host_port() -> tuple[str, int]:
+    host = os.environ.get('TELEOP_HOST', '0.0.0.0')
+    port = int(os.environ.get('TELEOP_PORT', '8080'))
+    return host, port
+
+
 def run_web() -> None:
-    app.run(host='0.0.0.0', port=8080, debug=False, threaded=True, use_reloader=False)
+    host, port = get_web_host_port()
+    app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
 
 
 def main() -> None:
@@ -198,15 +207,16 @@ def main() -> None:
     web_thread = threading.Thread(target=run_web, daemon=True)
     web_thread.start()
 
-    teleop_node.get_logger().info('teleop web started on port 8080')
+    host, port = get_web_host_port()
+    teleop_node.get_logger().info(f'teleop web started on {host}:{port}')
 
     try:
         rclpy.spin(teleop_node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
+        teleop_node.destroy_node()
         if rclpy.ok():
-            teleop_node.destroy_node()
             rclpy.shutdown()
 
 

@@ -10,7 +10,7 @@ The current live robot uses:
 /home/noob/omni-pi
 ```
 
-Most existing service files still assume this path and user `noob`.
+Service files are installed through `install/install-services.sh`, which renders the runtime user and `OMNI_HOME` into `/etc/systemd/system` and keeps `/etc/omni-robot/omni.env` aligned with the checkout path.
 
 ## Fresh install outline
 
@@ -56,8 +56,6 @@ wheel 0/1/2/3: about 60 each
 
 ## TODO for fully generic installer
 
-- Remove hardcoded `/home/noob/omni-pi` from service and launch files.
-- Source `/etc/omni-robot/omni.env` from services.
-- Use `ros2 run omni_bridge can_bridge` instead of running the build artifact directly.
+- Keep extending `/etc/omni-robot/omni.env` for new hardware/runtime options.
 - Add udev rule install for `/dev/rplidar`.
 - Add optional RealSense install path when perception is introduced.
