@@ -31,10 +31,10 @@ omni_odometry:
     publish_laser_tf: true
     wheel_count: 4
 
-    # Initial calibration placeholders. Refine after measuring real travel:
-    #   meters_per_tick = measured_distance_m / reported_average_ticks
-    #   radians_per_tick = measured_yaw_rad / reported_average_ticks
-    meters_per_tick: 0.00010
+    # Forward calibration from 6 measured 3-second FORWARD runs at 40%.
+    # Total odom before calibration: 3.723725 m; real travel: 4.553 m.
+    # Scale factor: 1.222700387. Rotation is still a placeholder.
+    meters_per_tick: 0.00012227
     radians_per_tick: 0.00010
 
     publish_period_sec: 0.05

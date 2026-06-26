@@ -33,9 +33,15 @@ Configured in `src/ros2_ws/src/omni_bridge/config/omni_bridge.params.yaml` under
 - `laser_xyz`: LIDAR position relative to `base_link`, meters.
 - `laser_rpy`: LIDAR orientation relative to `base_link`, radians.
 
-Initial defaults are placeholders. Calibrate them by commanding measured motion:
+Current linear calibration:
 
-1. Drive forward a known distance, for example 1 meter.
+| Date | Test | Odom total | Real total | Scale | `meters_per_tick` |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 2026-06-27 | 6 x `FORWARD 40%` for 3 seconds | 3.723725 m | 4.553 m | 1.222700387 | 0.00012227 |
+
+Rotation is still a placeholder. Continue calibration by commanding measured motion:
+
+1. Drive forward a known distance or timed run.
 2. Compare `/odom.pose.pose.position.x` with the measured distance.
 3. Adjust `meters_per_tick` proportionally.
 4. Rotate the robot a known angle, for example 360 degrees.
