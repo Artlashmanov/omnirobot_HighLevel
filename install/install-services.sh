@@ -45,6 +45,7 @@ ensure_env_key "TELEOP_PORT" "8080"
 ensure_env_key "OMNI_FETCH_ROS_DEPS" "1"
 ensure_env_key "OMNI_ENABLE_LIDAR" "1"
 ensure_env_key "OMNI_ROS_REPOS_FILE" '${OMNI_HOME}/src/ros2_ws/omni.repos'
+ensure_env_key "OMNI_ODOM_PARAMS" '${OMNI_HOME}/src/ros2_ws/src/omni_bridge/config/omni_bridge.params.yaml'
 ensure_env_key "LIDAR_MODEL" "rplidar_c1"
 ensure_env_key "LIDAR_SERIAL_PORT" "/dev/rplidar"
 ensure_env_key "LIDAR_FALLBACK_SERIAL_PORT" "/dev/ttyUSB0"
@@ -70,9 +71,9 @@ done
 
 cp "${SERVICE_TMP_DIR}"/*.service /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable omni-can.service omni-bridge.service omni-mux.service teleop-web.service
+systemctl enable omni-can.service omni-bridge.service omni-odom.service omni-mux.service teleop-web.service
 systemctl enable omni-lidar.service || true
 
 echo "Services installed. Runtime config: /etc/omni-robot/omni.env"
 echo "Services run as user: ${OMNI_USER_VALUE}"
-echo "Start core stack with: sudo systemctl start omni-can omni-bridge omni-mux teleop-web"
+echo "Start core stack with: sudo systemctl start omni-can omni-bridge omni-odom omni-mux teleop-web"

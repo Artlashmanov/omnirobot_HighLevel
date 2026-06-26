@@ -18,3 +18,31 @@ omni_can_bridge:
     angular_deadband: 0.05
     min_speed_pct: 30
     max_speed_pct: 100
+
+omni_odometry:
+  ros__parameters:
+    wheel_states_topic: /omni/wheel_states
+    base_status_topic: /omni/base_status
+    odom_topic: /odom
+    odom_frame_id: odom
+    base_frame_id: base_link
+    laser_frame_id: laser
+    publish_tf: true
+    publish_laser_tf: true
+    wheel_count: 4
+
+    # Initial calibration placeholders. Refine after measuring real travel:
+    #   meters_per_tick = measured_distance_m / reported_average_ticks
+    #   radians_per_tick = measured_yaw_rad / reported_average_ticks
+    meters_per_tick: 0.00010
+    radians_per_tick: 0.00010
+
+    publish_period_sec: 0.05
+    velocity_timeout_sec: 0.35
+    stale_wheel_age_sec: 0.6
+    min_delta_ticks: 0
+
+    # Measure this on the chassis. Current default means: lidar centered on
+    # the robot, 12 cm above base_link, facing forward.
+    laser_xyz: [0.0, 0.0, 0.12]
+    laser_rpy: [0.0, 0.0, 0.0]

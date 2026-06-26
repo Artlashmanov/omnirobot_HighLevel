@@ -1,0 +1,17 @@
+[Unit]
+Description=Omni Robot Wheel Odometry and TF
+Requires=omni-bridge.service
+After=omni-bridge.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=noob
+EnvironmentFile=-/etc/omni-robot/omni.env
+ExecStart=/bin/bash -lc 'exec "${OMNI_HOME:-/home/noob/omni-pi}/tools/run_odometry.sh"'
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

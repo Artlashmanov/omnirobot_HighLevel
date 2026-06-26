@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'can_bridge = omni_bridge.can_bridge_node:main',
+            'wheel_odometry = omni_bridge.wheel_odometry_node:main',
         ],
     },
 )

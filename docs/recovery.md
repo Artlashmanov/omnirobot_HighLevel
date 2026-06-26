@@ -38,6 +38,7 @@ sudo ./install/install.sh
 
 - `omni-can.service`: brings up `can0`.
 - `omni-bridge.service`: ROS2 CAN bridge.
+- `omni-odom.service`: wheel odometry and TF (`odom -> base_link -> laser`).
 - `omni-mux.service`: MANUAL/AUTO command mux.
 - `teleop-web.service`: Flask teleop UI.
 - `omni-lidar.service`: RPLIDAR node, optional for base bringup.

@@ -59,6 +59,8 @@ Core command topics:
 
 Core telemetry topics:
 
+- `/odom` (`nav_msgs/Odometry`, wheel dead-reckoning)
+- `/tf`, `/tf_static` (currently `odom -> base_link -> laser`)
 - `/omni/status_text` (`std_msgs/String`)
 - `/omni/status_json` (`std_msgs/String` JSON)
 - `/omni/rx_raw` (`std_msgs/String` JSON)
@@ -73,6 +75,8 @@ The high-level stack now selects a robot base through a platform profile. The cu
 ## STM32 CAN protocol contract
 
 The byte-level Pi5 <-> STM32 CAN contract is documented in [docs/can-protocol.md](docs/can-protocol.md). Update that file together with `src/omni_pi/protocol.py` whenever the STM32 CAN frame layout changes.
+
+Wheel odometry and the robot frame tree are documented in [docs/odometry.md](docs/odometry.md). This layer is the prerequisite for SLAM and map display.
 
 ## Quick operator commands
 

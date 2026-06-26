@@ -8,6 +8,8 @@ python3-rosdep
 python3-vcstool
 ros-dev-tools
 ros-jazzy-ros-base
+ros-jazzy-nav-msgs
+ros-jazzy-tf2-ros
 ros-jazzy-rviz2
 ros-jazzy-slam-toolbox
 udev
