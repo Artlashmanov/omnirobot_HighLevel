@@ -1,0 +1,34 @@
+﻿# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+.venv_ros/
+venv/
+
+# ROS2 build artifacts
+src/ros2_ws/build/
+src/ros2_ws/install/
+src/ros2_ws/log/
+
+# Logs and cache
+*.log
+.cache/
+.ros/log/
+
+# Archives
+*.tar.gz
+*.zip
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+.codex/
+*.tmp
+src/ros2_ws/src/sllidar_ros2/

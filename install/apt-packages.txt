@@ -1,0 +1,14 @@
+can-utils
+iproute2
+python3
+python3-pip
+python3.12-venv
+python3-colcon-common-extensions
+python3-rosdep
+python3-vcstool
+ros-dev-tools
+ros-jazzy-ros-base
+ros-jazzy-rviz2
+ros-jazzy-slam-toolbox
+udev
+usbutils

@@ -1,0 +1,18 @@
+omni_can_bridge:
+  ros__parameters:
+    can_channel: can0
+    status_poll_period_sec: 0.5
+    watchdog_timeout_sec: 0.8
+    cmd_vel_timeout_stop: true
+    wheel_names:
+      - front_left
+      - front_right
+      - rear_left
+      - rear_right
+
+    max_linear_x: 1.0
+    max_angular_z: 1.0
+    linear_deadband: 0.05
+    angular_deadband: 0.05
+    min_speed_pct: 30
+    max_speed_pct: 100

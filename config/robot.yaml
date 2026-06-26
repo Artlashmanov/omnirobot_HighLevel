@@ -1,0 +1,33 @@
+platform:
+  name: omnirobot_v1
+  type: omni4
+  wheel_count: 4
+
+wheels:
+  - index: 0
+    name: front_left
+  - index: 1
+    name: front_right
+  - index: 2
+    name: rear_left
+  - index: 3
+    name: rear_right
+
+can:
+  interface: can0
+  bitrate: 500000
+
+web:
+  host: 0.0.0.0
+  port: 8080
+
+lidar:
+  model: rplidar_c1
+  serial_port: /dev/rplidar
+  fallback_serial_port: /dev/ttyUSB0
+  serial_baudrate: 460800
+  frame_id: laser
+
+camera:
+  model: realsense_d415
+  enabled: false

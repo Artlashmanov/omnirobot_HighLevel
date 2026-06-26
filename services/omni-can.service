@@ -1,0 +1,14 @@
+[Unit]
+Description=Bring up SocketCAN can0 for Omni Robot
+After=network-pre.target
+Before=omni-bridge.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ip link set can0 down
+ExecStart=/usr/sbin/ip link set can0 up type can bitrate 500000
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+

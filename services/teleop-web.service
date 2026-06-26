@@ -1,0 +1,17 @@
+[Unit]
+Description=Omni Robot Web Teleop UI
+After=network-online.target omni-bridge.service
+Wants=network-online.target
+Requires=omni-bridge.service
+
+[Service]
+Type=simple
+User=noob
+WorkingDirectory=/home/noob
+ExecStart=/bin/bash -lc 'source /opt/ros/jazzy/setup.bash && /home/noob/omni-pi/.venv_ros/bin/python /home/noob/omni-pi/teleop_web/app.py'
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

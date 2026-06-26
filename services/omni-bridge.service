@@ -1,0 +1,17 @@
+[Unit]
+Description=Omni Robot ROS2 CAN Bridge
+Requires=omni-can.service
+After=omni-can.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=noob
+WorkingDirectory=/home/noob
+ExecStart=/home/noob/omni-pi/tools/run_ros2_bridge.sh
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

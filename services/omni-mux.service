@@ -1,0 +1,15 @@
+[Unit]
+Description=Omni Robot Command Mux
+After=network.target omni-can.service omni-bridge.service
+Wants=network.target omni-can.service omni-bridge.service
+
+[Service]
+Type=simple
+User=noob
+WorkingDirectory=/home/noob/omni-pi
+ExecStart=/home/noob/omni-pi/tools/run_cmd_mux.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

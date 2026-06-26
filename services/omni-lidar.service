@@ -1,0 +1,15 @@
+[Unit]
+Description=Omni Robot RPLIDAR C1
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=noob
+WorkingDirectory=/home/noob/omni-pi/src/ros2_ws
+ExecStart=/home/noob/omni-pi/tools/run_lidar.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
