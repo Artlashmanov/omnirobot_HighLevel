@@ -24,5 +24,6 @@ python -m pip install -r install/requirements-venv.txt
 
 sudo -u "${SUDO_USER:-noob}" bash install/build-workspace.sh
 bash install/install-services.sh
+bash install/install-udev-rules.sh
 
 echo "Install finished. Run: ./install/verify-install.sh"

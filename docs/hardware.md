@@ -22,7 +22,35 @@ Encoder signs are calibrated in STM32 so `FORWARD` produces positive `delta_tick
 
 The high-level base/CAN work does not require LIDAR to be connected.
 
-Current service target is Slamtec RPLIDAR C1 through `sllidar_ros2`. Prefer a stable udev symlink `/dev/rplidar` before relying on the service in navigation.
+Current service target is Slamtec RPLIDAR C1 through `sllidar_ros2`.
+
+Runtime defaults:
+
+- USB bridge: Silicon Labs CP2102N / CP210x, USB ID `10c4:ea60`.
+- Preferred device path: `/dev/rplidar`.
+- Fallback device path: `/dev/ttyUSB0`.
+- Baudrate: `460800`.
+- ROS frame: `laser`.
+- ROS topic: `/scan`.
+- Scan mode: `Standard`.
+
+Install the stable device path through:
+
+```bash
+sudo ./install/install-udev-rules.sh
+```
+
+If the LIDAR is connected during install, the generated rule is pinned to that device's `ID_SERIAL_SHORT` and creates `/dev/rplidar` with group `dialout`, mode `0660`. If the LIDAR is not connected, the installer writes a generic CP210x fallback rule; re-run it later with the LIDAR connected to pin the rule to the exact sensor.
+
+Check the live state with:
+
+```bash
+ls -l /dev/rplidar /dev/ttyUSB0
+systemctl status omni-lidar --no-pager
+ros2 topic echo --once /scan
+```
+
+On the current known-good robot, the RPLIDAR C1 reports health OK and publishes `sensor_msgs/msg/LaserScan` on `/scan`.
 
 ## RealSense D415
 

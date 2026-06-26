@@ -20,7 +20,8 @@ Service files are installed through `install/install-services.sh`, which renders
 4. Install ROS2 Jazzy packages.
 5. Build ROS workspace.
 6. Install systemd services.
-7. Verify CAN, ROS graph, web UI, and telemetry.
+7. Install udev rules for stable hardware device names.
+8. Verify CAN, ROS graph, web UI, telemetry, and optional sensors.
 
 Short version once OS and SSH are ready:
 
@@ -57,5 +58,4 @@ wheel 0/1/2/3: about 60 each
 ## TODO for fully generic installer
 
 - Keep extending `/etc/omni-robot/omni.env` for new hardware/runtime options.
-- Add udev rule install for `/dev/rplidar`.
 - Add optional RealSense install path when perception is introduced.

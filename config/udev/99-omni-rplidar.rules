@@ -1,0 +1,9 @@
+# Generic fallback udev rule for Slamtec RPLIDAR C1 USB UART bridge.
+#
+# The preferred install path is `sudo ./install/install-udev-rules.sh`.
+# When the LIDAR is connected during install, that script generates a
+# serial-specific rule in /etc/udev/rules.d/99-omni-rplidar.rules.
+#
+# This generic rule is kept as a readable reference and a safe fallback for
+# fresh systems where the LIDAR is not connected yet.
+SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", GROUP="dialout", MODE="0660", SYMLINK+="rplidar"

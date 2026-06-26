@@ -13,6 +13,12 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+ensure_env_key() {
+  local key="$1"
+  local value="$2"
+  grep -q "^${key}=" /etc/omni-robot/omni.env || printf '%s=%s\n' "${key}" "${value}" >> /etc/omni-robot/omni.env
+}
+
 install -d -m 0755 /etc/omni-robot
 if [[ ! -f /etc/omni-robot/omni.env ]]; then
   sed \
@@ -28,9 +34,23 @@ else
     /etc/omni-robot/omni.env
   grep -q '^OMNI_HOME=' /etc/omni-robot/omni.env || echo "OMNI_HOME=${PROJECT_DIR}" >> /etc/omni-robot/omni.env
   grep -q '^OMNI_USER=' /etc/omni-robot/omni.env || echo "OMNI_USER=${OMNI_USER_VALUE}" >> /etc/omni-robot/omni.env
-  grep -q '^ROBOT_PLATFORM=' /etc/omni-robot/omni.env || echo "ROBOT_PLATFORM=omni4" >> /etc/omni-robot/omni.env
-  grep -q '^OMNI_PLATFORM_CONFIG=' /etc/omni-robot/omni.env || echo 'OMNI_PLATFORM_CONFIG=${OMNI_HOME}/config/platforms/omni4.json' >> /etc/omni-robot/omni.env
 fi
+
+ensure_env_key "ROBOT_PLATFORM" "omni4"
+ensure_env_key "OMNI_PLATFORM_CONFIG" '${OMNI_HOME}/config/platforms/omni4.json'
+ensure_env_key "CAN_IFACE" "can0"
+ensure_env_key "CAN_BITRATE" "500000"
+ensure_env_key "TELEOP_HOST" "0.0.0.0"
+ensure_env_key "TELEOP_PORT" "8080"
+ensure_env_key "LIDAR_SERIAL_PORT" "/dev/rplidar"
+ensure_env_key "LIDAR_FALLBACK_SERIAL_PORT" "/dev/ttyUSB0"
+ensure_env_key "LIDAR_SERIAL_BAUDRATE" "460800"
+ensure_env_key "LIDAR_FRAME_ID" "laser"
+ensure_env_key "LIDAR_WAIT_TIMEOUT_SEC" "20"
+ensure_env_key "LIDAR_SCAN_MODE" "Standard"
+ensure_env_key "LIDAR_INVERTED" "false"
+ensure_env_key "LIDAR_ANGLE_COMPENSATE" "true"
+ensure_env_key "LIDAR_USB_SERIAL_SHORT" ""
 
 SERVICE_TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${SERVICE_TMP_DIR}"' EXIT
