@@ -65,6 +65,11 @@ Core telemetry topics:
 - `/omni/base_status` (`std_msgs/String` JSON, decoded CAN `0x190`)
 - `/omni/wheel_states` (`std_msgs/String` JSON, aggregated decoded CAN `0x191`)
 
+
+## STM32 CAN protocol contract
+
+The byte-level Pi5 <-> STM32 CAN contract is documented in [docs/can-protocol.md](docs/can-protocol.md). Update that file together with `src/omni_pi/protocol.py` whenever the STM32 CAN frame layout changes.
+
 ## Quick operator commands
 
 Read CAN telemetry:
