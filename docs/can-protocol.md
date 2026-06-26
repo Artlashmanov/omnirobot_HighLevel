@@ -1,6 +1,6 @@
 # CAN protocol contract: Pi5 high level <-> STM32 base
 
-This document is the wire-level contract between the Raspberry Pi 5 high-level stack and the STM32 base controller.
+This is the current `omni4` / `stm32_omni_v1` wire-level contract between the Raspberry Pi 5 high-level stack and the STM32 base controller.
 
 Source of truth in code:
 

@@ -7,15 +7,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import String
 
-VALID_MOTION_MODES = {
-    "STOP",
-    "FORWARD",
-    "BACKWARD",
-    "LEFT",
-    "RIGHT",
-    "ROTATE_CCW",
-    "ROTATE_CW",
-}
+from omni_pi.platforms import load_platform_profile, normalize_motion_payload
 
 VALID_CONTROL_MODES = {"MANUAL", "AUTO"}
 
@@ -24,6 +16,7 @@ class CommandMuxNode(Node):
     def __init__(self) -> None:
         super().__init__("command_mux")
 
+        self.platform = load_platform_profile()
         self.active_source = "AUTO"
 
         self.pub_motion = self.create_publisher(String, "/omni/motion_cmd", 10)
@@ -41,7 +34,9 @@ class CommandMuxNode(Node):
         )
 
         self.publish_mode_status("startup")
-        self.get_logger().info("command_mux started, default control mode = AUTO")
+        self.get_logger().info(
+            f"command_mux started, platform={self.platform.name}, default control mode = AUTO"
+        )
 
     def normalize_text(self, value: str) -> str:
         return value.strip().upper()
@@ -74,30 +69,10 @@ class CommandMuxNode(Node):
         except json.JSONDecodeError as exc:
             return None, f"invalid_json: {exc}"
 
-        if not isinstance(data, dict):
-            return None, "payload_not_object"
-
-        mode = data.get("mode")
-        speed_pct = data.get("speed_pct", 0)
-
-        if not isinstance(mode, str):
-            return None, "mode_missing_or_not_string"
-
-        mode = self.normalize_text(mode)
-        if mode not in VALID_MOTION_MODES:
-            return None, f"unsupported_mode: {mode}"
-
         try:
-            speed_pct = int(speed_pct)
-        except (TypeError, ValueError):
-            return None, "speed_pct_not_int"
-
-        if speed_pct < 0:
-            speed_pct = 0
-        if speed_pct > 100:
-            speed_pct = 100
-
-        return {"mode": mode, "speed_pct": speed_pct}, None
+            return normalize_motion_payload(data, self.platform), None
+        except ValueError as exc:
+            return None, str(exc)
 
     def publish_json(self, pub, payload: dict) -> None:
         msg = String()
@@ -134,7 +109,7 @@ class CommandMuxNode(Node):
         )
 
     def publish_stop(self, reason: str) -> None:
-        stop_cmd = {"mode": "STOP", "speed_pct": 0}
+        stop_cmd = self.platform.stop_command()
         self.publish_json(self.pub_motion, stop_cmd)
         self.publish_arbiter_status(
             event="publish_stop",

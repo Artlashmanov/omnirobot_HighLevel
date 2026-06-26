@@ -16,6 +16,8 @@ fi
 export OMNI_HOME="${OMNI_HOME:-${DEFAULT_OMNI_HOME}}"
 export OMNI_USER="${OMNI_USER:-noob}"
 export ROS_DISTRO="${ROS_DISTRO:-jazzy}"
+export ROBOT_PLATFORM="${ROBOT_PLATFORM:-omni4}"
+export OMNI_PLATFORM_CONFIG="${OMNI_PLATFORM_CONFIG:-${OMNI_HOME}/config/platforms/${ROBOT_PLATFORM}.json}"
 export CAN_IFACE="${CAN_IFACE:-can0}"
 export CAN_BITRATE="${CAN_BITRATE:-500000}"
 export TELEOP_HOST="${TELEOP_HOST:-0.0.0.0}"

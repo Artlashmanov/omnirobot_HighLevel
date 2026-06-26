@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 import time
 
@@ -11,6 +12,7 @@ from std_msgs.msg import String
 from omni_pi.can_transport import CanTransport
 from omni_pi import protocol
 from omni_pi.protocol import MotionMode
+from omni_pi.platforms import load_platform_profile, normalize_motion_payload
 
 
 MODE_FROM_NAME = {
@@ -35,12 +37,23 @@ class OmniCanBridgeNode(Node):
     def __init__(self):
         super().__init__('omni_can_bridge')
 
+        self.declare_parameter('platform_name', os.environ.get('ROBOT_PLATFORM', 'omni4'))
+        self.declare_parameter('platform_config', os.environ.get('OMNI_PLATFORM_CONFIG', ''))
         self.declare_parameter('can_channel', 'can0')
         self.declare_parameter('status_poll_period_sec', 0.5)
         self.declare_parameter('watchdog_timeout_sec', 0.8)
         self.declare_parameter('cmd_vel_timeout_stop', True)
-        self.declare_parameter('wheel_names', DEFAULT_WHEEL_NAMES)
 
+        platform_name = str(self.get_parameter('platform_name').value or 'omni4')
+        platform_config = str(self.get_parameter('platform_config').value or '')
+        self.platform = load_platform_profile(platform_name, platform_config)
+        if self.platform.can_protocol != 'stm32_omni_v1':
+            raise RuntimeError(
+                f"omni_bridge currently supports can_protocol=stm32_omni_v1, "
+                f"platform {self.platform.name} requests {self.platform.can_protocol}"
+            )
+
+        self.declare_parameter('wheel_names', list(self.platform.wheel_names))
         self.declare_parameter('max_linear_x', 1.0)
         self.declare_parameter('max_angular_z', 1.0)
         self.declare_parameter('linear_deadband', 0.05)
@@ -85,7 +98,10 @@ class OmniCanBridgeNode(Node):
         self.rx_thread = threading.Thread(target=self.recv_loop, daemon=True)
         self.rx_thread.start()
 
-        self.get_logger().info(f'omni_can_bridge started on {self.can_channel}')
+        self.get_logger().info(
+            f'omni_can_bridge started on {self.can_channel}, '
+            f'platform={self.platform.name}, can_protocol={self.platform.can_protocol}'
+        )
 
     def next_seq(self) -> int:
         self.seq = (self.seq + 1) & 0xFF
@@ -149,18 +165,18 @@ class OmniCanBridgeNode(Node):
 
         try:
             payload = json.loads(msg.data)
+            command = normalize_motion_payload(payload, self.platform)
         except Exception as e:
-            self.get_logger().error(f'Invalid /omni/motion_cmd JSON: {e}')
+            self.get_logger().error(f'Invalid /omni/motion_cmd for platform {self.platform.name}: {e}')
             return
 
-        mode_name = str(payload.get('mode', 'STOP')).strip().upper()
-        speed_pct = int(payload.get('speed_pct', self.min_speed_pct))
+        mode_name = str(command['mode'])
+        speed_pct = int(command['speed_pct'])
 
         if mode_name not in MODE_FROM_NAME:
-            self.get_logger().error(f'Unknown motion mode: {mode_name}')
+            self.get_logger().error(f'Motion mode {mode_name} has no STM32 mapping')
             return
 
-        speed_pct = max(0, min(100, speed_pct))
         mode = MODE_FROM_NAME[mode_name]
 
         if self.last_sent_motion == mode and self.last_sent_speed == speed_pct:

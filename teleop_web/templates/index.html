@@ -109,6 +109,7 @@
 <body>
   <h1>Omni Robot Teleop</h1>
   <div class="status" id="status">Ready</div>
+  <div class="mode-status" id="platformStatus">Platform: loading...</div>
   <div class="mode-status" id="modeStatus">Control mode: unknown</div>
 
   <div class="mode-wrap">
@@ -175,6 +176,7 @@
 
   <script>
     const statusEl = document.getElementById('status');
+    const platformStatusEl = document.getElementById('platformStatus');
     const modeStatusEl = document.getElementById('modeStatus');
     const speedEl = document.getElementById('speed');
     const speedValueEl = document.getElementById('speedValue');
@@ -190,6 +192,14 @@
     const wheelRowsEl = document.getElementById('wheelRows');
 
     let repeatTimer = null;
+    let buttonModes = {
+      forward: 'FORWARD',
+      backward: 'BACKWARD',
+      left: 'RIGHT',
+      right: 'LEFT',
+      rotate_ccw: 'ROTATE_CW',
+      rotate_cw: 'ROTATE_CCW'
+    };
     let currentControlMode = 'UNKNOWN';
 
     function getSpeed() {
@@ -294,6 +304,24 @@
       }
     }
 
+    async function refreshPlatform() {
+      try {
+        const response = await fetch('/api/platform');
+        const data = await response.json();
+        if (response.ok && data.ok && data.platform) {
+          const platform = data.platform;
+          platformStatusEl.textContent = `Platform: ${platform.platform} (${platform.display_name || platform.can_protocol})`;
+          if (platform.teleop_button_modes) {
+            buttonModes = { ...buttonModes, ...platform.teleop_button_modes };
+          }
+        } else {
+          platformStatusEl.textContent = 'Platform: server error';
+        }
+      } catch (e) {
+        platformStatusEl.textContent = 'Platform: disconnected';
+      }
+    }
+
     async function refreshControlMode() {
       try {
         const response = await fetch('/api/control_mode');
@@ -368,12 +396,12 @@
       }
     }
 
-    function bindHoldButton(id, mode) {
+    function bindHoldButton(id, modeKey) {
       const btn = document.getElementById(id);
 
       const start = (e) => {
         e.preventDefault();
-        startRepeating(mode);
+        startRepeating(buttonModes[modeKey] || 'STOP');
       };
 
       const stop = (e) => {
@@ -391,12 +419,12 @@
       btn.addEventListener('touchcancel', stop, { passive: false });
     }
 
-    bindHoldButton('forward', 'FORWARD');
-    bindHoldButton('backward', 'BACKWARD');
-    bindHoldButton('left', 'RIGHT');
-    bindHoldButton('right', 'LEFT');
-    bindHoldButton('rotate_ccw', 'ROTATE_CW');
-    bindHoldButton('rotate_cw', 'ROTATE_CCW');
+    bindHoldButton('forward', 'forward');
+    bindHoldButton('backward', 'backward');
+    bindHoldButton('left', 'left');
+    bindHoldButton('right', 'right');
+    bindHoldButton('rotate_ccw', 'rotate_ccw');
+    bindHoldButton('rotate_cw', 'rotate_cw');
 
     document.getElementById('stop').addEventListener('click', async (e) => {
       e.preventDefault();
@@ -414,6 +442,7 @@
       await setControlMode('MANUAL');
     });
 
+    refreshPlatform();
     refreshControlMode();
     refreshState();
     setInterval(refreshState, 500);

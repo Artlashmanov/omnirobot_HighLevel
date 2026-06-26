@@ -66,6 +66,10 @@ Core telemetry topics:
 - `/omni/wheel_states` (`std_msgs/String` JSON, aggregated decoded CAN `0x191`)
 
 
+## Platform layer
+
+The high-level stack now selects a robot base through a platform profile. The current implemented platform is `omni4`, configured by `ROBOT_PLATFORM=omni4` and `config/platforms/omni4.json`. See [docs/architecture.md](docs/architecture.md) for the layer model and how future platforms should be added.
+
 ## STM32 CAN protocol contract
 
 The byte-level Pi5 <-> STM32 CAN contract is documented in [docs/can-protocol.md](docs/can-protocol.md). Update that file together with `src/omni_pi/protocol.py` whenever the STM32 CAN frame layout changes.

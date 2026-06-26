@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "platform": "omni4",
+  "display_name": "4x4 omnidirectional base",
+  "motion_interface": "discrete_mode_speed_v1",
+  "can_protocol": "stm32_omni_v1",
+  "motion_modes": [
+    "STOP",
+    "FORWARD",
+    "BACKWARD",
+    "LEFT",
+    "RIGHT",
+    "ROTATE_CCW",
+    "ROTATE_CW"
+  ],
+  "wheel_names": [
+    "front_left",
+    "front_right",
+    "rear_left",
+    "rear_right"
+  ],
+  "cmd_vel": {
+    "linear_x_positive": "FORWARD",
+    "linear_x_negative": "BACKWARD",
+    "angular_z_positive": "ROTATE_CCW",
+    "angular_z_negative": "ROTATE_CW",
+    "linear_y_supported": false
+  },
+  "teleop_button_modes": {
+    "forward": "FORWARD",
+    "backward": "BACKWARD",
+    "left": "RIGHT",
+    "right": "LEFT",
+    "rotate_ccw": "ROTATE_CW",
+    "rotate_cw": "ROTATE_CCW"
+  }
+}

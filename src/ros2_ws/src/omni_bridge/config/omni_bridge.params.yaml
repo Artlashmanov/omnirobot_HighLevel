@@ -1,5 +1,7 @@
 omni_can_bridge:
   ros__parameters:
+    platform_name: omni4
+    platform_config: ''
     can_channel: can0
     status_poll_period_sec: 0.5
     watchdog_timeout_sec: 0.8

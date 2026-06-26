@@ -11,21 +11,14 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import String
 
+from omni_pi.platforms import load_platform_profile, normalize_motion_payload
 
-VALID_MOTION_MODES = {
-    'STOP',
-    'FORWARD',
-    'BACKWARD',
-    'LEFT',
-    'RIGHT',
-    'ROTATE_CCW',
-    'ROTATE_CW',
-}
 
 
 class TeleopWebNode(Node):
     def __init__(self) -> None:
         super().__init__('teleop_web_node')
+        self.platform = load_platform_profile()
         self.manual_publisher = self.create_publisher(String, '/omni/manual_cmd', 10)
         self.mode_publisher = self.create_publisher(String, '/omni/control_mode', 10)
 
@@ -40,21 +33,16 @@ class TeleopWebNode(Node):
         self.create_subscription(String, '/omni/status_json', self.on_status_json, 10)
         self.create_subscription(String, '/omni/control_mode_status', self.on_control_mode_status, 10)
 
-    def publish_motion(self, mode: str, speed_pct: int) -> None:
-        mode = str(mode).strip().upper()
-        if mode not in VALID_MOTION_MODES:
-            raise ValueError(f'unsupported motion mode: {mode}')
-
-        speed_pct = max(0, min(100, int(speed_pct)))
-        if mode == 'STOP':
-            speed_pct = 0
-
-        msg = String()
-        msg.data = json.dumps({
+    def publish_motion(self, mode: str, speed_pct: int) -> dict:
+        command = normalize_motion_payload({
             'mode': mode,
             'speed_pct': speed_pct,
-        }, separators=(',', ':'))
+        }, self.platform)
+
+        msg = String()
+        msg.data = json.dumps(command, separators=(',', ':'))
         self.manual_publisher.publish(msg)
+        return command
 
     def publish_control_mode(self, control_mode: str) -> None:
         control_mode = str(control_mode).strip().upper()
@@ -106,6 +94,7 @@ class TeleopWebNode(Node):
                 'base_status': copy.deepcopy(self.last_base_status),
                 'wheel_states': copy.deepcopy(self.last_wheel_states),
                 'status': copy.deepcopy(self.last_status_json),
+                'platform': self.platform.as_public_dict(),
             }
 
 
@@ -129,18 +118,27 @@ def api_move():
 
     try:
         speed_pct = int(payload.get('speed_pct', 30))
-        teleop_node.publish_motion(mode, speed_pct)
+        command = teleop_node.publish_motion(mode, speed_pct)
     except (TypeError, ValueError) as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 400
 
-    if mode == 'STOP':
-        speed_pct = 0
+    return jsonify({
+        'ok': True,
+        'mode': command['mode'],
+        'speed_pct': command['speed_pct'],
+        'control_mode': teleop_node.get_state_snapshot()['control_mode'],
+    })
+
+
+@app.route('/api/platform', methods=['GET'])
+def api_platform():
+    global teleop_node
+    if teleop_node is None:
+        return jsonify({'ok': False, 'error': 'teleop node not initialized'}), 500
 
     return jsonify({
         'ok': True,
-        'mode': mode,
-        'speed_pct': max(0, min(100, speed_pct)),
-        'control_mode': teleop_node.get_state_snapshot()['control_mode'],
+        'platform': teleop_node.platform.as_public_dict(),
     })
 
 

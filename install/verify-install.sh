@@ -12,6 +12,8 @@ echo "== runtime config =="
 echo "OMNI_HOME=${OMNI_HOME}"
 echo "OMNI_ROS_WS=${OMNI_ROS_WS}"
 echo "OMNI_BRIDGE_PARAMS=${OMNI_BRIDGE_PARAMS}"
+echo "ROBOT_PLATFORM=${ROBOT_PLATFORM}"
+echo "OMNI_PLATFORM_CONFIG=${OMNI_PLATFORM_CONFIG}"
 echo "CAN_IFACE=${CAN_IFACE}"
 echo "CAN_BITRATE=${CAN_BITRATE}"
 
@@ -30,6 +32,13 @@ timeout 8 ros2 node list || true
 
 echo "== ROS2 topics =="
 timeout 8 ros2 topic list -t || true
+
+echo "== Platform profile =="
+python - <<'PY' || true
+from omni_pi.platforms import load_platform_profile
+profile = load_platform_profile()
+print(profile.as_public_dict())
+PY
 
 echo "== Bridge executable =="
 ros2 pkg executables omni_bridge || true

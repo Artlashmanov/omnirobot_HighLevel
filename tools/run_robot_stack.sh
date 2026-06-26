@@ -9,4 +9,6 @@ source_ros
 activate_venv
 
 exec ros2 launch "${OMNI_HOME}/launch/omni_robot.launch.py" \
-  params_file:="${OMNI_BRIDGE_PARAMS}"
+  params_file:="${OMNI_BRIDGE_PARAMS}" \
+  platform_name:="${ROBOT_PLATFORM}" \
+  platform_config:="${OMNI_PLATFORM_CONFIG}"

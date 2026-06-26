@@ -18,4 +18,6 @@ fi
 
 exec "${OMNI_VENV}/bin/python" "${installed_bridge}" \
   --ros-args \
-  --params-file "${OMNI_BRIDGE_PARAMS}"
+  --params-file "${OMNI_BRIDGE_PARAMS}" \
+  -p platform_name:="${ROBOT_PLATFORM}" \
+  -p platform_config:="${OMNI_PLATFORM_CONFIG}"

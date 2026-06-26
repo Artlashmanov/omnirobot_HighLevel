@@ -28,6 +28,8 @@ else
     /etc/omni-robot/omni.env
   grep -q '^OMNI_HOME=' /etc/omni-robot/omni.env || echo "OMNI_HOME=${PROJECT_DIR}" >> /etc/omni-robot/omni.env
   grep -q '^OMNI_USER=' /etc/omni-robot/omni.env || echo "OMNI_USER=${OMNI_USER_VALUE}" >> /etc/omni-robot/omni.env
+  grep -q '^ROBOT_PLATFORM=' /etc/omni-robot/omni.env || echo "ROBOT_PLATFORM=omni4" >> /etc/omni-robot/omni.env
+  grep -q '^OMNI_PLATFORM_CONFIG=' /etc/omni-robot/omni.env || echo 'OMNI_PLATFORM_CONFIG=${OMNI_HOME}/config/platforms/omni4.json' >> /etc/omni-robot/omni.env
 fi
 
 SERVICE_TMP_DIR="$(mktemp -d)"
