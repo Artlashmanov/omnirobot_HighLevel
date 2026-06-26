@@ -22,7 +22,7 @@ Encoder signs are calibrated in STM32 so `FORWARD` produces positive `delta_tick
 
 The high-level base/CAN work does not require LIDAR to be connected.
 
-Current service target is Slamtec RPLIDAR C1 through `sllidar_ros2`.
+Current service target is Slamtec RPLIDAR C1 through `sllidar_ros2`. The driver source is pinned in `src/ros2_ws/omni.repos` and fetched automatically by `install/fetch-ros-deps.sh` during a fresh install.
 
 Runtime defaults:
 

@@ -23,11 +23,9 @@ if [[ "${restore_nounset}" -eq 1 ]]; then
   set -u
 fi
 
-cd "${PROJECT_DIR}/src/ros2_ws"
+"${PROJECT_DIR}/install/fetch-ros-deps.sh"
 
-if [[ -f omni.repos && ! -d src/sllidar_ros2 ]]; then
-  vcs import src < omni.repos
-fi
+cd "${PROJECT_DIR}/src/ros2_ws"
 
 prepare_omni_bridge_install_for_symlink_build() {
   local package_name=omni_bridge

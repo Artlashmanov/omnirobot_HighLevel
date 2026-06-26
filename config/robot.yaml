@@ -22,7 +22,11 @@ web:
   port: 8080
 
 lidar:
+  enabled: true
   model: rplidar_c1
+  hardware_profile: config/hardware/lidars/rplidar_c1.yaml
+  ros_package: sllidar_ros2
+  ros_source_repos: src/ros2_ws/omni.repos
   serial_port: /dev/rplidar
   fallback_serial_port: /dev/ttyUSB0
   serial_baudrate: 460800

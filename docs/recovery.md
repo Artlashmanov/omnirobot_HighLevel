@@ -18,10 +18,11 @@ Service files are installed through `install/install-services.sh`, which renders
 2. Configure network and SSH.
 3. Clone this repository to `/home/noob/omni-pi`.
 4. Install ROS2 Jazzy packages.
-5. Build ROS workspace.
-6. Install systemd services.
-7. Install udev rules for stable hardware device names.
-8. Verify CAN, ROS graph, web UI, telemetry, and optional sensors.
+5. Fetch pinned external ROS sources with `install/fetch-ros-deps.sh`.
+6. Build ROS workspace.
+7. Install systemd services.
+8. Install udev rules for stable hardware device names.
+9. Verify CAN, ROS graph, web UI, telemetry, and optional sensors.
 
 Short version once OS and SSH are ready:
 

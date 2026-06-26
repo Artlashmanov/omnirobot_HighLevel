@@ -16,6 +16,10 @@ echo "ROBOT_PLATFORM=${ROBOT_PLATFORM}"
 echo "OMNI_PLATFORM_CONFIG=${OMNI_PLATFORM_CONFIG}"
 echo "CAN_IFACE=${CAN_IFACE}"
 echo "CAN_BITRATE=${CAN_BITRATE}"
+echo "OMNI_FETCH_ROS_DEPS=${OMNI_FETCH_ROS_DEPS}"
+echo "OMNI_ENABLE_LIDAR=${OMNI_ENABLE_LIDAR}"
+echo "OMNI_ROS_REPOS_FILE=${OMNI_ROS_REPOS_FILE}"
+echo "LIDAR_MODEL=${LIDAR_MODEL}"
 echo "LIDAR_SERIAL_PORT=${LIDAR_SERIAL_PORT}"
 echo "LIDAR_FALLBACK_SERIAL_PORT=${LIDAR_FALLBACK_SERIAL_PORT}"
 echo "LIDAR_SERIAL_BAUDRATE=${LIDAR_SERIAL_BAUDRATE}"
@@ -48,6 +52,13 @@ PY
 
 echo "== Bridge executable =="
 ros2 pkg executables omni_bridge || true
+
+if [[ "${OMNI_ENABLE_LIDAR}" != "0" ]]; then
+  echo "== LIDAR ROS package =="
+  test -d "${OMNI_ROS_WS}/src/sllidar_ros2" && echo "source: ${OMNI_ROS_WS}/src/sllidar_ros2" || echo "missing source: ${OMNI_ROS_WS}/src/sllidar_ros2"
+  ros2 pkg prefix sllidar_ros2 || true
+  ros2 pkg executables sllidar_ros2 || true
+fi
 
 echo "== Base telemetry topics =="
 timeout 8 ros2 topic echo --once /omni/base_status || true

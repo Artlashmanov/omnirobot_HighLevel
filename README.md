@@ -96,18 +96,26 @@ Open teleop UI:
 http://<pi-ip>:8080
 ```
 
-## External ROS sources
+## External ROS sources and hardware drivers
 
-Third-party ROS packages are pinned in `src/ros2_ws/omni.repos`. The local checkout may contain `src/ros2_ws/src/sllidar_ros2`, but it is intentionally ignored by git and should be restored with:
+Third-party ROS packages are pinned in `src/ros2_ws/omni.repos`. The Slamtec RPLIDAR C1 driver is intentionally not vendored into this repository; the installer restores it automatically before building the ROS workspace:
+
+```bash
+./install/fetch-ros-deps.sh
+```
+
+Manual equivalent:
 
 ```bash
 cd src/ros2_ws
-vcs import src < omni.repos
+vcs import --input omni.repos .
 ```
+
+The current hardware profile for the LIDAR is `config/hardware/lidars/rplidar_c1.yaml`. Future installer UI checkboxes should update/select these hardware profiles, then run the same fetch/build/service install pipeline.
 
 ## Install on a fresh Pi5
 
-The current first-pass installer assumes Ubuntu 24.04 + ROS2 Jazzy and the project checked out to `/home/noob/omni-pi`.
+The installer assumes Ubuntu 24.04 + ROS2 Jazzy and the project checked out to `/home/noob/omni-pi`. It installs apt packages, restores pinned external ROS sources such as `sllidar_ros2`, builds the workspace, installs udev rules, and enables systemd services.
 
 ```bash
 cd /home/noob/omni-pi

@@ -1,3 +1,7 @@
+# External ROS source dependencies for omnirobot HighLevel.
+# Paths are relative to src/ros2_ws, so import with:
+#   cd src/ros2_ws
+#   vcs import --input omni.repos .
 repositories:
   src/sllidar_ros2:
     type: git

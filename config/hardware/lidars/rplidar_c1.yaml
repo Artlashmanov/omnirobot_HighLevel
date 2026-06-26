@@ -1,0 +1,31 @@
+id: rplidar_c1
+kind: lidar
+display_name: Slamtec RPLIDAR C1
+enabled_by_default: true
+
+ros:
+  source_repos_file: src/ros2_ws/omni.repos
+  source_path: src/ros2_ws/src/sllidar_ros2
+  package: sllidar_ros2
+  launch_file: sllidar_c1_launch.py
+  topic: /scan
+  message_type: sensor_msgs/msg/LaserScan
+
+service:
+  systemd_unit: omni-lidar.service
+  runner: tools/run_lidar.sh
+
+device:
+  preferred_port: /dev/rplidar
+  fallback_port: /dev/ttyUSB0
+  udev_rule: config/udev/99-omni-rplidar.rules
+  usb_vendor_id: "10c4"
+  usb_product_id: "ea60"
+  linux_group: dialout
+
+runtime_defaults:
+  baudrate: 460800
+  frame_id: laser
+  scan_mode: Standard
+  inverted: false
+  angle_compensate: true
