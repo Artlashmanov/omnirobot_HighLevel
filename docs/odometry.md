@@ -42,13 +42,42 @@ Current linear calibration:
 | 2026-06-27 | 6 x `FORWARD 40%` for 3 seconds | 3.723725 m | 4.553 m | 1.222700387 | 0.00012227 |
 | 2026-06-27 | 3 x `FORWARD 30%` for 1 second | 0.701891 m | 0.783 m | 1.115557932 | 0.00013640 |
 | 2026-06-27 | 3 robust `FORWARD 30%` for 1 second | 0.547032 m | 0.567 m | 1.036501891 | 0.00014138 |
+| 2026-06-27 | 3 fixed `FORWARD 30%` for 0.7 seconds, measured by TF-Luna | 0.402862 m | 0.420000 m | 1.042540157 | 0.00014739 |
+| 2026-06-27 | 1 fixed `FORWARD 30%` for 0.7 seconds, TF-Luna control after correction | 0.140794 m | 0.140000 m | 0.994358776 | 0.00014656 |
+| 2026-06-27 | 3 fixed `FORWARD 30%` for 0.7 seconds, TF-Luna control after correction | 0.417623 m | 0.445000 m | 1.065555322 | 0.00015617 |
+| 2026-06-27 | 3 fixed `FORWARD 30%` for 0.7 seconds, TF-Luna final control | 0.449887 m | 0.445000 m | 0.989138120 | kept 0.00015617 |
 
-Rotation is still a placeholder. Continue calibration by commanding measured motion:
+Current lateral validation:
 
-1. Drive forward a known distance or timed run.
-2. Compare `/odom.pose.pose.position.x` with the measured distance.
-3. Adjust `meters_per_tick` proportionally.
-4. Rotate the robot a known angle, for example 360 degrees.
+| Date | Test | Odom total | Real total | Error | Decision |
+| --- | --- | ---: | ---: | ---: | --- |
+| 2026-06-28 | 3 x `LEFT/RIGHT 35%` for 0.5 seconds on smooth floor, measured by side-mounted TF-Luna | 0.589229 m | 0.595000 m | -0.97% | kept `meters_per_tick = 0.00015617` |
+
+Current rotation calibration:
+
+| Date | Test | Odom yaw | Real yaw | Scale | `radians_per_tick` |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 2026-06-28 | `ROTATE_CW 35%` for 1.0 second | 9.513 deg | ~35 deg | ~3.679 | rough short probe |
+| 2026-06-28 | `ROTATE_CW 35%` for 5.0 seconds | 34.658 deg | ~200 deg | 5.770491 | 0.00057705 |
+| 2026-06-28 | `ROTATE_CW 35%` for 2.3 seconds control | 138.796 deg | ~170 deg | 1.224815 | 0.00070678 |
+| 2026-06-28 | `ROTATE_CW 35%` for 2.44 seconds control | 176.469 deg | ~170 deg | 0.963340 | 0.00068087 |
+| 2026-06-28 | `ROTATE_CW 35%` for 5.31 seconds 360-control | 366.030 deg | ~341 deg | 0.931617 | 0.00063431 |
+| 2026-06-28 | `ROTATE_CW 35%` for 5.51 seconds 360-control | 367.222 deg | ~360 deg | 0.980334 | 0.00062184 |
+| 2026-06-28 | `ROTATE_CW 35%` for 2.71 seconds 180-control | 172.043 deg | ~180 deg | timing validation | kept 0.00062184 |
+
+Practical rotation timing on smooth floor at 35% speed:
+
+| Motion | Duration | Notes |
+| --- | ---: | --- |
+| `ROTATE_CW 35%` | ~5.51 s | approximately 360 degrees, physical error about +/-1 degree in the best control run |
+| `ROTATE_CW 35%` | ~2.71 s | approximately 180 degrees, physical error about +/-1 degree in the best control run |
+
+Continue calibration by commanding measured motion:
+
+1. Drive forward/lateral a known distance or timed run.
+2. Compare `/odom.pose.pose.position.x/y` with the measured distance.
+3. Adjust `meters_per_tick` proportionally only if both forward and lateral agree.
+4. Rotate the robot a known angle, for example 180 or 360 degrees.
 5. Compare `/odom.pose.pose.orientation` / yaw with the measured angle.
 6. Adjust `radians_per_tick` proportionally.
 

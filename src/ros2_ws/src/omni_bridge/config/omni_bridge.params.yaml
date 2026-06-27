@@ -37,9 +37,27 @@ omni_odometry:
     # - 2026-06-27: 6 measured 3-second FORWARD runs at 40% -> 0.00012227.
     # - 2026-06-27: 3 measured 1-second FORWARD runs at 30% refined scale by 1.115557932.
     # - 2026-06-27: 3 robust 1-second FORWARD runs at 30% refined scale to 0.00014138.
-    # Rotation is still a placeholder.
-    meters_per_tick: 0.00014138
-    radians_per_tick: 0.00010
+    # - 2026-06-27: 3 fixed 0.7-second FORWARD runs at 30%, measured by TF-Luna -> 0.00014739.
+    # - 2026-06-27: 1 fixed 0.7-second TF-Luna control run refined scale to 0.00014656.
+    # - 2026-06-27: 3 fixed 0.7-second TF-Luna control runs refined scale to 0.00015617.
+    # - 2026-06-27: 3 fixed 0.7-second TF-Luna final control showed +1.10% odom error; kept 0.00015617.
+    # Lateral calibration:
+    # - 2026-06-28: 3 LEFT/RIGHT cycles at 35% on smooth floor measured by TF-Luna:
+    #   real 0.595000 m, odom 0.589229 m, weighted error -0.97%; kept 0.00015617.
+    # Rotation calibration:
+    # - 2026-06-28: ROTATE_CW 35% for 5.0 s, odom 34.658 deg, real about 200 deg.
+    #   Scale 5.770491 -> radians_per_tick 0.00057705.
+    # - 2026-06-28: ROTATE_CW 35% for 2.3 s control, odom 138.796 deg, real about 170 deg.
+    #   Scale 1.224815 -> radians_per_tick 0.00070678.
+    # - 2026-06-28: ROTATE_CW 35% for 2.44 s control, odom 176.469 deg, real about 170 deg.
+    #   Scale 0.963340 -> radians_per_tick 0.00068087.
+    # - 2026-06-28: ROTATE_CW 35% for 5.31 s 360-control, odom 366.030 deg, real about 341 deg.
+    #   Scale 0.931617 -> radians_per_tick 0.00063431.
+    # - 2026-06-28: ROTATE_CW 35% for 5.51 s control, physical 360 deg (+/-1 deg), odom 367.222 deg.
+    #   Scale 0.980334 -> radians_per_tick 0.00062184.
+    # Practical timing on smooth floor at 35%: 360 deg ~= 5.51 s, 180 deg ~= 2.71 s.
+    meters_per_tick: 0.00015617
+    radians_per_tick: 0.00062184
 
     publish_period_sec: 0.05
     velocity_timeout_sec: 0.35
