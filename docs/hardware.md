@@ -52,6 +52,30 @@ ros2 topic echo --once /scan
 
 On the current known-good robot, the RPLIDAR C1 reports health OK and publishes `sensor_msgs/msg/LaserScan` on `/scan`.
 
+## TF-Luna front range sensor
+
+The robot has a Benewake TF-Luna mounted on the front nose under the RealSense D415. It is connected directly to Raspberry Pi 5 UART0 on GPIO14/15 and publishes a standard ROS range topic.
+
+Runtime defaults:
+
+- Device: `/dev/ttyAMA0`.
+- Baudrate: `115200`.
+- ROS frame: `tf_luna_front`.
+- ROS topic: `/range/front` (`sensor_msgs/msg/Range`).
+- JSON status topic: `/sensors/tf_luna/front`.
+- systemd service: `omni-tfluna.service`.
+
+Pi 5 UART0 must be enabled in `/boot/firmware/config.txt`:
+
+```text
+enable_uart=1
+dtoverlay=uart0-pi5
+```
+
+Fresh installs run `install/configure-pi-hardware.sh`, which ensures these lines are present and prints whether a reboot is required.
+
+See `docs/tf-luna.md` for wiring and calibration notes.
+
 ## RealSense D415
 
 D415 is not required for the current base/teleop/encoder telemetry layer. Connect it later for perception/depth/navigation work. When connected, check USB bandwidth and power budget before enabling camera services at boot.

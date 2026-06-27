@@ -14,7 +14,7 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
-    install_requires=['setuptools', 'python-can>=4.6'],
+    install_requires=['setuptools', 'python-can>=4.6', 'pyserial>=3.5'],
     zip_safe=True,
     maintainer='Artlashmanov',
     maintainer_email='Artlashmanov@users.noreply.github.com',
@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             'can_bridge = omni_bridge.can_bridge_node:main',
             'wheel_odometry = omni_bridge.wheel_odometry_node:main',
+            'tf_luna = omni_bridge.tf_luna_node:main',
         ],
     },
 )

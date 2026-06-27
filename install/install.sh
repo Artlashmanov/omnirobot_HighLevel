@@ -22,6 +22,8 @@ fi
 python -m pip install --upgrade pip
 python -m pip install -r install/requirements-venv.txt
 
+bash install/configure-pi-hardware.sh
+
 sudo -u "${SUDO_USER:-noob}" bash install/fetch-ros-deps.sh
 sudo -u "${SUDO_USER:-noob}" bash install/build-workspace.sh
 bash install/install-services.sh

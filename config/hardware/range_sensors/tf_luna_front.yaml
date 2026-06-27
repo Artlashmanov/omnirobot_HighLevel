@@ -1,0 +1,27 @@
+model: tf_luna
+vendor: Benewake
+role: front_range
+mount:
+  location: front
+  description: Mounted under the Intel RealSense D415, facing forward.
+transport:
+  type: uart
+  pi5_overlay: uart0-pi5
+  serial_port: /dev/ttyAMA0
+  baudrate: 115200
+  wiring:
+    vcc: Raspberry Pi physical pin 2 or 4, 5V
+    gnd: Raspberry Pi physical pin 6
+    txd: Raspberry Pi physical pin 10, GPIO15/RX
+    rxd: Raspberry Pi physical pin 8, GPIO14/TX
+ros:
+  node: tf_luna_front
+  executable: tf_luna
+  package: omni_bridge
+  range_topic: /range/front
+  status_topic: /sensors/tf_luna/front
+  message_type: sensor_msgs/msg/Range
+limits:
+  min_range_m: 0.2
+  max_range_m: 8.0
+  field_of_view_rad: 0.0349066

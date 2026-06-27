@@ -32,6 +32,18 @@ lidar:
   serial_baudrate: 460800
   frame_id: laser
 
+range_sensors:
+  front:
+    enabled: true
+    model: tf_luna
+    hardware_profile: config/hardware/range_sensors/tf_luna_front.yaml
+    transport: uart
+    serial_port: /dev/ttyAMA0
+    baudrate: 115200
+    frame_id: tf_luna_front
+    ros_range_topic: /range/front
+    ros_status_topic: /sensors/tf_luna/front
+
 camera:
   model: realsense_d415
   enabled: false

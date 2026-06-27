@@ -6,7 +6,7 @@ from typing import Iterable
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from geometry_msgs.msg import TransformStamped
+from geometry_msgs.msg import TransformStamped, Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
@@ -70,6 +70,8 @@ class WheelOdometryNode(Node):
 
         self.declare_parameter('wheel_states_topic', '/omni/wheel_states')
         self.declare_parameter('base_status_topic', '/omni/base_status')
+        self.declare_parameter('motion_cmd_topic', '/omni/motion_cmd')
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel')
         self.declare_parameter('odom_topic', '/odom')
         self.declare_parameter('odom_frame_id', 'odom')
         self.declare_parameter('base_frame_id', 'base_link')
@@ -88,6 +90,8 @@ class WheelOdometryNode(Node):
 
         self.wheel_states_topic = str(self.get_parameter('wheel_states_topic').value)
         self.base_status_topic = str(self.get_parameter('base_status_topic').value)
+        self.motion_cmd_topic = str(self.get_parameter('motion_cmd_topic').value)
+        self.cmd_vel_topic = str(self.get_parameter('cmd_vel_topic').value)
         self.odom_topic = str(self.get_parameter('odom_topic').value)
         self.odom_frame_id = str(self.get_parameter('odom_frame_id').value)
         self.base_frame_id = str(self.get_parameter('base_frame_id').value)
@@ -119,6 +123,8 @@ class WheelOdometryNode(Node):
         self.static_tf_broadcaster = StaticTransformBroadcaster(self)
 
         self.create_subscription(String, self.base_status_topic, self.on_base_status, 20)
+        self.create_subscription(String, self.motion_cmd_topic, self.on_motion_cmd, 20)
+        self.create_subscription(Twist, self.cmd_vel_topic, self.on_cmd_vel, 20)
         self.create_subscription(String, self.wheel_states_topic, self.on_wheel_states, 30)
         self.create_timer(self.publish_period_sec, self.publish_odometry)
 
@@ -126,10 +132,57 @@ class WheelOdometryNode(Node):
             self.publish_static_laser_transform()
 
         self.get_logger().info(
-            f'omni_odometry started: wheel_states={self.wheel_states_topic}, odom={self.odom_topic}, '
+            f'omni_odometry started: wheel_states={self.wheel_states_topic}, '
+            f'motion_cmd={self.motion_cmd_topic}, cmd_vel={self.cmd_vel_topic}, odom={self.odom_topic}, '
             f'frames={self.odom_frame_id}->{self.base_frame_id}->{self.laser_frame_id}, '
             f'meters_per_tick={self.meters_per_tick}, radians_per_tick={self.radians_per_tick}'
         )
+
+    def set_motion_mode(self, mode: str, source: str) -> None:
+        normalized = str(mode or MOTION_STOP).upper()
+        if normalized not in {
+            MOTION_STOP,
+            MOTION_FORWARD,
+            MOTION_BACKWARD,
+            MOTION_LEFT,
+            MOTION_RIGHT,
+            MOTION_ROTATE_CCW,
+            MOTION_ROTATE_CW,
+        }:
+            self.get_logger().warning(f'Ignoring unknown motion mode from {source}: {mode}')
+            return
+
+        self.motion_mode_name = normalized
+        if normalized == MOTION_STOP:
+            self.vx = 0.0
+            self.vy = 0.0
+            self.vyaw = 0.0
+
+    def on_motion_cmd(self, msg: String) -> None:
+        try:
+            payload = json.loads(msg.data)
+        except json.JSONDecodeError as exc:
+            self.get_logger().warning(f'Invalid motion_cmd JSON: {exc}')
+            return
+
+        self.set_motion_mode(str(payload.get('mode') or MOTION_STOP), source='motion_cmd')
+
+    def on_cmd_vel(self, msg: Twist) -> None:
+        linear_x = float(msg.linear.x)
+        linear_y = float(msg.linear.y)
+        angular_z = float(msg.angular.z)
+        deadband = 1e-4
+
+        if abs(linear_x) < deadband and abs(linear_y) < deadband and abs(angular_z) < deadband:
+            self.set_motion_mode(MOTION_STOP, source='cmd_vel')
+            return
+
+        if abs(linear_x) >= abs(linear_y) and abs(linear_x) >= abs(angular_z):
+            self.set_motion_mode(MOTION_FORWARD if linear_x > 0.0 else MOTION_BACKWARD, source='cmd_vel')
+        elif abs(linear_y) >= abs(angular_z):
+            self.set_motion_mode(MOTION_LEFT if linear_y > 0.0 else MOTION_RIGHT, source='cmd_vel')
+        else:
+            self.set_motion_mode(MOTION_ROTATE_CCW if angular_z > 0.0 else MOTION_ROTATE_CW, source='cmd_vel')
 
     def on_base_status(self, msg: String) -> None:
         try:
@@ -138,12 +191,7 @@ class WheelOdometryNode(Node):
             self.get_logger().warning(f'Invalid base_status JSON: {exc}')
             return
 
-        mode = str(payload.get('motion_mode_name') or MOTION_STOP).upper()
-        self.motion_mode_name = mode
-        if mode == MOTION_STOP:
-            self.vx = 0.0
-            self.vy = 0.0
-            self.vyaw = 0.0
+        self.set_motion_mode(str(payload.get('motion_mode_name') or MOTION_STOP), source='base_status')
 
     def on_wheel_states(self, msg: String) -> None:
         try:

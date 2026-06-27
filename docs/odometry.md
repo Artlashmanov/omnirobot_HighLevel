@@ -11,7 +11,9 @@ Published interfaces:
 
 Input topics:
 
-- `/omni/base_status` (`std_msgs/msg/String` JSON): active STM32 motion mode.
+- `/omni/base_status` (`std_msgs/msg/String` JSON): active STM32 motion mode fallback/status.
+- `/omni/motion_cmd` (`std_msgs/msg/String` JSON): commanded discrete motion mode, used for low-latency odometry direction.
+- `/cmd_vel` (`geometry_msgs/msg/Twist`): velocity command fallback for ROS-native control.
 - `/omni/wheel_states` (`std_msgs/msg/String` JSON): round-robin encoder deltas from STM32.
 
 ## Current odometry model
@@ -38,6 +40,8 @@ Current linear calibration:
 | Date | Test | Odom total | Real total | Scale | `meters_per_tick` |
 | --- | --- | ---: | ---: | ---: | ---: |
 | 2026-06-27 | 6 x `FORWARD 40%` for 3 seconds | 3.723725 m | 4.553 m | 1.222700387 | 0.00012227 |
+| 2026-06-27 | 3 x `FORWARD 30%` for 1 second | 0.701891 m | 0.783 m | 1.115557932 | 0.00013640 |
+| 2026-06-27 | 3 robust `FORWARD 30%` for 1 second | 0.547032 m | 0.567 m | 1.036501891 | 0.00014138 |
 
 Rotation is still a placeholder. Continue calibration by commanding measured motion:
 

@@ -1,0 +1,16 @@
+[Unit]
+Description=Omni Robot TF-Luna Front Range Sensor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=noob
+EnvironmentFile=-/etc/omni-robot/omni.env
+ExecStart=/bin/bash -lc 'exec "${OMNI_HOME:-/home/noob/omni-pi}/tools/run_tf_luna.sh"'
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
