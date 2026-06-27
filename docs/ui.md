@@ -59,3 +59,15 @@ Recommended future JSON fields:
   "temperature_c": 36.0
 }
 ```
+
+## Cockpit layout
+
+The UI now uses a cockpit-style operator layout inspired by an inside-rover
+view:
+
+- the top/center camera area is reserved for the future RealSense D415 feed;
+- the right `MAP` panel switches between `SLAM` map and `LIVE` LIDAR preview;
+- the bottom row uses equal-height instruments for speed, motors, INA228 power,
+  TF-Luna, and LIDAR sectors;
+- missing telemetry is shown as `No data` or `Waiting for ...`;
+- warnings are grouped behind the yellow dashboard-style warning indicator.
