@@ -14,7 +14,14 @@ manual control working and adds read-only telemetry panels.
 - `/scan` — reduced LIDAR summary only: nearest/front/left/right distances.
 - `/sensors/ina228` or `/omni/power_status` — future INA228 power JSON topic.
 
-The UI does not stream raw laser scans to the browser.
+The fast state API does not stream raw laser scans to the browser.
+
+## Live LIDAR preview
+
+`/api/scan` is separate from `/api/state`. It returns a downsampled point preview
+from `/scan` so the operator can see what the robot sees right now. The browser
+polls it about every 500 ms. The maximum point count is controlled by
+`TELEOP_SCAN_PREVIEW_MAX_POINTS` and defaults to `360`.
 
 ## Map telemetry
 
@@ -25,6 +32,11 @@ every 2 seconds when auto-refresh is enabled.
 This keeps the control/status channel responsive even when the map grows.
 The maximum preview dimension is controlled by `TELEOP_MAP_MAX_DIM` and defaults
 to `220` cells.
+
+The UI also displays the map timestamp, age, and content hash. If the timestamp
+changes but the hash stays the same, SLAM is publishing a fresh map message but
+the actual occupancy cells did not change. This is expected when the robot is
+stationary or sees the same area from the same pose.
 
 ## INA228 status
 

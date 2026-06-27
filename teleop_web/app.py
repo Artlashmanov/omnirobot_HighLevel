@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import copy
+import hashlib
 import json
 import math
 import os
@@ -35,9 +36,11 @@ class TeleopWebNode(Node):
         self.last_tf_luna_status = None
         self.last_power_status = None
         self.last_scan_summary = None
+        self.last_scan_preview = None
         self.last_map_preview = None
         self.last_scan_summary_monotonic_sec = 0.0
         self.map_max_dim = int(os.environ.get('TELEOP_MAP_MAX_DIM', '220'))
+        self.scan_preview_max_points = int(os.environ.get('TELEOP_SCAN_PREVIEW_MAX_POINTS', '360'))
 
         self.create_subscription(String, '/omni/base_status', self.on_base_status, 10)
         self.create_subscription(String, '/omni/wheel_states', self.on_wheel_states, 10)
@@ -133,10 +136,14 @@ class TeleopWebNode(Node):
             return
         self.last_scan_summary_monotonic_sec = now
 
-        payload = self.build_scan_summary(msg)
-        payload['_web_received_time_sec'] = time.time()
+        summary = self.build_scan_summary(msg)
+        preview = self.build_scan_preview(msg)
+        received_time_sec = time.time()
+        summary['_web_received_time_sec'] = received_time_sec
+        preview['_web_received_time_sec'] = received_time_sec
         with self.state_lock:
-            self.last_scan_summary = payload
+            self.last_scan_summary = summary
+            self.last_scan_preview = preview
 
     def on_map(self, msg: OccupancyGrid) -> None:
         payload = self.build_map_preview(msg)
@@ -230,6 +237,41 @@ class TeleopWebNode(Node):
             'back_m': self.min_sector_range(msg, math.pi, sector_width),
         }
 
+    def build_scan_preview(self, msg: LaserScan) -> dict:
+        max_points = max(36, int(self.scan_preview_max_points))
+        step = max(1, math.ceil(len(msg.ranges) / max_points))
+        points = []
+        angle = float(msg.angle_min)
+        increment = float(msg.angle_increment)
+        range_min = float(msg.range_min)
+        range_max = float(msg.range_max)
+
+        for index, value in enumerate(msg.ranges):
+            if index % step != 0:
+                angle += increment
+                continue
+
+            distance = float(value)
+            if math.isfinite(distance) and range_min <= distance <= range_max:
+                points.append({
+                    'x': round(math.cos(angle) * distance, 3),
+                    'y': round(math.sin(angle) * distance, 3),
+                    'r': round(distance, 3),
+                })
+            angle += increment
+
+        return {
+            'type': 'laser_scan_preview',
+            'frame_id': msg.header.frame_id,
+            'stamp': self.stamp_to_dict(msg.header.stamp),
+            'range_min_m': range_min,
+            'range_max_m': range_max,
+            'source_sample_count': len(msg.ranges),
+            'downsample_step': step,
+            'point_count': len(points),
+            'points': points,
+        }
+
     def build_map_preview(self, msg: OccupancyGrid) -> dict:
         source_width = int(msg.info.width)
         source_height = int(msg.info.height)
@@ -272,6 +314,8 @@ class TeleopWebNode(Node):
                 else:
                     cells.append(-1)
 
+        content_hash = hashlib.sha1(bytes((cell + 1) & 0xFF for cell in cells)).hexdigest()[:12]
+
         return {
             'type': 'occupancy_grid_preview',
             'available': True,
@@ -289,6 +333,7 @@ class TeleopWebNode(Node):
                 'y': float(msg.info.origin.position.y),
                 'z': float(msg.info.origin.position.z),
             },
+            'content_hash': content_hash,
             'cells': cells,
         }
 
@@ -310,6 +355,10 @@ class TeleopWebNode(Node):
     def get_map_snapshot(self) -> dict | None:
         with self.state_lock:
             return copy.deepcopy(self.last_map_preview)
+
+    def get_scan_snapshot(self) -> dict | None:
+        with self.state_lock:
+            return copy.deepcopy(self.last_scan_preview)
 
 
 teleop_node = None
@@ -405,10 +454,28 @@ def api_map():
     if teleop_node is None:
         return jsonify({'ok': False, 'error': 'teleop node not initialized'}), 500
 
-    return jsonify({
+    response = jsonify({
         'ok': True,
+        'server_time_sec': time.time(),
         'map': teleop_node.get_map_snapshot(),
     })
+    response.headers['Cache-Control'] = 'no-store, max-age=0'
+    return response
+
+
+@app.route('/api/scan', methods=['GET'])
+def api_scan():
+    global teleop_node
+    if teleop_node is None:
+        return jsonify({'ok': False, 'error': 'teleop node not initialized'}), 500
+
+    response = jsonify({
+        'ok': True,
+        'server_time_sec': time.time(),
+        'scan': teleop_node.get_scan_snapshot(),
+    })
+    response.headers['Cache-Control'] = 'no-store, max-age=0'
+    return response
 
 
 def get_web_host_port() -> tuple[str, int]:

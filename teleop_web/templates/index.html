@@ -147,7 +147,8 @@
       padding: 10px;
       overflow: auto;
     }
-    #mapCanvas {
+    #mapCanvas,
+    #scanCanvas {
       display: block;
       width: 100%;
       max-width: 920px;
@@ -283,6 +284,22 @@
     </section>
 
     <section class="state-card map-card">
+      <h2>Live LIDAR scan</h2>
+      <div class="map-toolbar">
+        <span id="scanStatus">waiting for /scan...</span>
+        <label><input id="scanAuto" type="checkbox" checked> auto refresh ~0.5s</label>
+        <span class="pill">live view, downsampled</span>
+      </div>
+      <div class="map-wrap">
+        <canvas id="scanCanvas" width="920" height="520"></canvas>
+      </div>
+      <div class="legend">
+        <span><span class="swatch free"></span>LIDAR point</span>
+        <span><span class="swatch occupied"></span>robot/front</span>
+      </div>
+    </section>
+
+    <section class="state-card map-card">
       <h2>SLAM map</h2>
       <div class="map-toolbar">
         <span id="mapStatus">waiting for /map...</span>
@@ -332,13 +349,19 @@
     const powerEnergyEl = document.getElementById('powerEnergy');
     const powerSourceEl = document.getElementById('powerSource');
 
+    const scanStatusEl = document.getElementById('scanStatus');
+    const scanAutoEl = document.getElementById('scanAuto');
+    const scanCanvasEl = document.getElementById('scanCanvas');
     const mapStatusEl = document.getElementById('mapStatus');
     const mapRefreshBtn = document.getElementById('mapRefresh');
     const mapAutoEl = document.getElementById('mapAuto');
     const mapCanvasEl = document.getElementById('mapCanvas');
 
     let repeatTimer = null;
+    let scanFetchInFlight = false;
     let mapFetchInFlight = false;
+    let lastMapHash = null;
+    let mapChangeCount = 0;
     let buttonModes = {
       forward: 'FORWARD',
       backward: 'BACKWARD',
@@ -555,6 +578,106 @@
       }
     }
 
+    function drawEmptyScan(message) {
+      const ctx = scanCanvasEl.getContext('2d');
+      ctx.fillStyle = '#151515';
+      ctx.fillRect(0, 0, scanCanvasEl.width, scanCanvasEl.height);
+      ctx.fillStyle = '#888';
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(message, scanCanvasEl.width / 2, scanCanvasEl.height / 2);
+    }
+
+    function drawScan(scan) {
+      if (!scan || !Array.isArray(scan.points)) {
+        drawEmptyScan('waiting for /scan');
+        return;
+      }
+
+      const ctx = scanCanvasEl.getContext('2d');
+      const w = scanCanvasEl.width;
+      const h = scanCanvasEl.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const maxRange = Math.max(1, Math.min(5, Number(scan.range_max_m) || 5));
+      const scale = Math.min(w, h) * 0.44 / maxRange;
+
+      ctx.fillStyle = '#0c0c0c';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = '#242424';
+      ctx.lineWidth = 1;
+      for (let r = 1; r <= Math.floor(maxRange); r += 1) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = '#333';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx, cy - maxRange * scale);
+      ctx.stroke();
+
+      ctx.fillStyle = '#dbeafe';
+      for (const point of scan.points) {
+        const x = Number(point.x);
+        const y = Number(point.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        const px = cx - y * scale;
+        const py = cy - x * scale;
+        ctx.fillRect(px - 1, py - 1, 3, 3);
+      }
+
+      ctx.fillStyle = '#ff6b6b';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 14);
+      ctx.lineTo(cx - 9, cy + 9);
+      ctx.lineTo(cx + 9, cy + 9);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#888';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('front ↑', 12, 20);
+      ctx.fillText(`${maxRange.toFixed(0)} m radius`, 12, 38);
+    }
+
+    async function refreshScan() {
+      if (scanFetchInFlight) return;
+      scanFetchInFlight = true;
+      try {
+        const response = await fetch(`/api/scan?_=${Date.now()}`, { cache: 'no-store' });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          scanStatusEl.textContent = 'scan API error';
+          scanStatusEl.className = 'bad';
+          return;
+        }
+
+        const scan = data.scan;
+        if (!scan) {
+          scanStatusEl.textContent = 'waiting for /scan...';
+          scanStatusEl.className = 'warn';
+          drawEmptyScan('waiting for /scan');
+          return;
+        }
+
+        drawScan(scan);
+        const age = typeof scan._web_received_time_sec === 'number' && typeof data.server_time_sec === 'number'
+          ? Math.max(0, data.server_time_sec - scan._web_received_time_sec).toFixed(1)
+          : '?';
+        scanStatusEl.textContent = `${scan.point_count} points from ${scan.source_sample_count} samples, step x${scan.downsample_step}, age ${age}s`;
+        scanStatusEl.className = 'ok';
+      } catch (e) {
+        scanStatusEl.textContent = 'scan disconnected';
+        scanStatusEl.className = 'bad';
+      } finally {
+        scanFetchInFlight = false;
+      }
+    }
+
     function drawEmptyMap(message) {
       const ctx = mapCanvasEl.getContext('2d');
       ctx.fillStyle = '#151515';
@@ -567,7 +690,8 @@
 
     function drawMap(map) {
       if (!map || !map.available || !Array.isArray(map.cells) || !map.width || !map.height) {
-        drawEmptyMap('waiting for /map');
+        drawEmptyScan('waiting for /scan');
+    drawEmptyMap('waiting for /map');
         return;
       }
 
@@ -599,7 +723,7 @@
       if (mapFetchInFlight && !force) return;
       mapFetchInFlight = true;
       try {
-        const response = await fetch('/api/map');
+        const response = await fetch(`/api/map?_=${Date.now()}`, { cache: 'no-store' });
         const data = await response.json();
         if (!response.ok || !data.ok) {
           mapStatusEl.textContent = 'map API error';
@@ -616,8 +740,20 @@
         }
 
         drawMap(map);
+        const changed = map.content_hash && map.content_hash !== lastMapHash;
+        if (changed) {
+          mapChangeCount += 1;
+          lastMapHash = map.content_hash;
+        } else if (!lastMapHash && map.content_hash) {
+          lastMapHash = map.content_hash;
+        }
         const stepText = map.downsample_step && map.downsample_step > 1 ? `, downsample x${map.downsample_step}` : '';
-        mapStatusEl.textContent = `${map.source_width || map.width}×${map.source_height || map.height}, ${formatNumber(map.source_resolution_m || map.resolution_m, 2, ' m/cell')}${stepText}`;
+        const age = typeof map._web_received_time_sec === 'number' && typeof data.server_time_sec === 'number'
+          ? Math.max(0, data.server_time_sec - map._web_received_time_sec).toFixed(1)
+          : '?';
+        const stamp = map.stamp ? `${map.stamp.sec}.${String(Math.floor((map.stamp.nanosec || 0) / 1000000)).padStart(3, '0')}` : '?';
+        const hashText = map.content_hash ? `, hash ${map.content_hash}${changed ? ' changed' : ' same'}` : '';
+        mapStatusEl.textContent = `${map.source_width || map.width}×${map.source_height || map.height}, ${formatNumber(map.source_resolution_m || map.resolution_m, 2, ' m/cell')}${stepText}, stamp ${stamp}, age ${age}s${hashText}, changes ${mapChangeCount}`;
         mapStatusEl.className = 'ok';
       } catch (e) {
         mapStatusEl.textContent = 'map disconnected';
@@ -774,8 +910,12 @@
     refreshPlatform();
     refreshControlMode();
     refreshState();
+    refreshScan();
     refreshMap(true);
     setInterval(refreshState, 500);
+    setInterval(() => {
+      if (scanAutoEl.checked) refreshScan();
+    }, 500);
     setInterval(() => {
       if (mapAutoEl.checked) refreshMap();
     }, 2000);
