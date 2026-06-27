@@ -61,12 +61,12 @@
     }
     .state-wrap {
       display: grid;
-      grid-template-columns: minmax(280px, 420px) minmax(320px, 620px);
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 14px;
       justify-content: center;
       align-items: start;
       margin: 24px auto 8px;
-      max-width: 1100px;
+      max-width: 1280px;
       text-align: left;
     }
     .state-card {
@@ -76,6 +76,8 @@
       padding: 14px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
     }
+    .state-card.wide { grid-column: span 2; }
+    .state-card.map-card { grid-column: 1 / -1; }
     .kv {
       display: grid;
       grid-template-columns: 150px 1fr;
@@ -87,6 +89,14 @@
     .ok { color: #7dff9b; }
     .warn { color: #ffcc66; }
     .bad { color: #ff7777; }
+    .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border: 1px solid #444;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #aaa;
+    }
     table {
       border-collapse: collapse;
       width: 100%;
@@ -99,10 +109,85 @@
     }
     th:first-child, td:first-child,
     th:nth-child(2), td:nth-child(2) { text-align: left; }
+    .speed-bar {
+      width: 96px;
+      height: 8px;
+      background: #262626;
+      border-radius: 999px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+    .speed-bar > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3aa0ff, #7dff9b);
+    }
+    .map-toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      color: #aaa;
+      font-size: 14px;
+    }
+    .small-btn {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    .map-wrap {
+      background: #0c0c0c;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 10px;
+      overflow: auto;
+    }
+    #mapCanvas {
+      display: block;
+      width: 100%;
+      max-width: 920px;
+      height: auto;
+      margin: 0 auto;
+      background: #151515;
+      border-radius: 8px;
+      image-rendering: pixelated;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      color: #aaa;
+      font-size: 12px;
+    }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      margin-right: 5px;
+      vertical-align: -2px;
+    }
+    .swatch.unknown { background: #242424; }
+    .swatch.free { background: #dbeafe; }
+    .swatch.occupied { background: #ff6b6b; }
     @media (max-width: 820px) {
+      body { padding: 14px; }
+      .grid {
+        grid-template-columns: 95px 95px 95px;
+        grid-template-rows: 78px 78px 78px 78px;
+        gap: 9px;
+      }
       .state-wrap { grid-template-columns: 1fr; }
+      .state-card.wide { grid-column: auto; }
       table { font-size: 12px; }
       th, td { padding: 6px 4px; }
+      .speed-bar { display: none; }
     }
   </style>
 </head>
@@ -155,13 +240,37 @@
     </section>
 
     <section class="state-card">
+      <h2>Range / LIDAR</h2>
+      <div class="kv">
+        <div class="muted">TF-Luna</div><div id="lunaDistance">waiting...</div>
+        <div class="muted">Signal</div><div id="lunaSignal">?</div>
+        <div class="muted">Luna temp</div><div id="lunaTemp">?</div>
+        <div class="muted">LIDAR nearest</div><div id="scanNearest">waiting...</div>
+        <div class="muted">Front sector</div><div id="scanFront">?</div>
+        <div class="muted">Left / Right</div><div id="scanSides">?</div>
+      </div>
+    </section>
+
+    <section class="state-card">
+      <h2>Power / INA228</h2>
+      <div class="kv">
+        <div class="muted">Status</div><div id="powerStatus">waiting for /sensors/ina228</div>
+        <div class="muted">Voltage</div><div id="powerVoltage">?</div>
+        <div class="muted">Current</div><div id="powerCurrent">?</div>
+        <div class="muted">Power</div><div id="powerWatts">?</div>
+        <div class="muted">Energy / charge</div><div id="powerEnergy">?</div>
+        <div class="muted">Source</div><div id="powerSource">?</div>
+      </div>
+    </section>
+
+    <section class="state-card wide">
       <h2>Wheel states</h2>
       <table>
         <thead>
           <tr>
             <th>#</th>
             <th>Name</th>
-            <th>? ticks</th>
+            <th>Δ ticks</th>
             <th>ticks/s</th>
             <th>Moving</th>
             <th>Age</th>
@@ -171,6 +280,24 @@
           <tr><td colspan="6" class="muted">waiting...</td></tr>
         </tbody>
       </table>
+    </section>
+
+    <section class="state-card map-card">
+      <h2>SLAM map</h2>
+      <div class="map-toolbar">
+        <span id="mapStatus">waiting for /map...</span>
+        <button class="small-btn" id="mapRefresh">Refresh map</button>
+        <label><input id="mapAuto" type="checkbox" checked> auto refresh ~2s</label>
+        <span class="pill">map API is separate from fast telemetry</span>
+      </div>
+      <div class="map-wrap">
+        <canvas id="mapCanvas" width="920" height="520"></canvas>
+      </div>
+      <div class="legend">
+        <span><span class="swatch unknown"></span>unknown</span>
+        <span><span class="swatch free"></span>free</span>
+        <span><span class="swatch occupied"></span>obstacle</span>
+      </div>
     </section>
   </div>
 
@@ -191,7 +318,27 @@
     const baseErrorsEl = document.getElementById('baseErrors');
     const wheelRowsEl = document.getElementById('wheelRows');
 
+    const lunaDistanceEl = document.getElementById('lunaDistance');
+    const lunaSignalEl = document.getElementById('lunaSignal');
+    const lunaTempEl = document.getElementById('lunaTemp');
+    const scanNearestEl = document.getElementById('scanNearest');
+    const scanFrontEl = document.getElementById('scanFront');
+    const scanSidesEl = document.getElementById('scanSides');
+
+    const powerStatusEl = document.getElementById('powerStatus');
+    const powerVoltageEl = document.getElementById('powerVoltage');
+    const powerCurrentEl = document.getElementById('powerCurrent');
+    const powerWattsEl = document.getElementById('powerWatts');
+    const powerEnergyEl = document.getElementById('powerEnergy');
+    const powerSourceEl = document.getElementById('powerSource');
+
+    const mapStatusEl = document.getElementById('mapStatus');
+    const mapRefreshBtn = document.getElementById('mapRefresh');
+    const mapAutoEl = document.getElementById('mapAuto');
+    const mapCanvasEl = document.getElementById('mapCanvas');
+
     let repeatTimer = null;
+    let mapFetchInFlight = false;
     let buttonModes = {
       forward: 'FORWARD',
       backward: 'BACKWARD',
@@ -232,6 +379,47 @@
       return value ? 'ok' : 'warn';
     }
 
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[char]));
+    }
+
+    function formatNumber(value, digits = 2, suffix = '') {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '?';
+      return `${number.toFixed(digits)}${suffix}`;
+    }
+
+    function formatMeters(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return '?';
+      if (Math.abs(number) < 1.0) return `${(number * 100).toFixed(1)} cm`;
+      return `${number.toFixed(2)} m`;
+    }
+
+    function ageLabel(payload, state) {
+      if (!payload || typeof payload._web_received_time_sec !== 'number' || typeof state.server_time_sec !== 'number') {
+        return '';
+      }
+      const age = Math.max(0, state.server_time_sec - payload._web_received_time_sec);
+      return ` (${age.toFixed(1)}s ago)`;
+    }
+
+    function firstNumber(payload, keys) {
+      if (!payload) return null;
+      for (const key of keys) {
+        if (payload[key] === undefined || payload[key] === null) continue;
+        const number = Number(payload[key]);
+        if (Number.isFinite(number)) return number;
+      }
+      return null;
+    }
+
     function renderBaseStatus(baseStatus) {
       if (!baseStatus) {
         bridgeStateEl.textContent = 'waiting for /omni/base_status';
@@ -266,7 +454,10 @@
         return;
       }
 
+      const maxAbsSpeed = Math.max(1, ...wheels.map((wheel) => Math.abs(Number(wheel.speed_ticks_per_sec) || 0)));
       wheelRowsEl.innerHTML = wheels.map((wheel) => {
+        const speed = Number(wheel.speed_ticks_per_sec) || 0;
+        const speedPct = Math.min(100, Math.round((Math.abs(speed) / maxAbsSpeed) * 100));
         const movingClass = wheel.moving ? 'ok' : 'muted';
         const age = typeof wheel.last_update_age_sec === 'number'
           ? wheel.last_update_age_sec.toFixed(2)
@@ -274,13 +465,71 @@
         return `
           <tr>
             <td>${wheel.wheel_index}</td>
-            <td>${wheel.name || `wheel_${wheel.wheel_index}`}</td>
+            <td>${escapeHtml(wheel.name || `wheel_${wheel.wheel_index}`)}</td>
             <td>${wheel.delta_ticks}</td>
-            <td>${wheel.speed_ticks_per_sec}</td>
+            <td>${speed}<span class="speed-bar"><span style="width:${speedPct}%"></span></span></td>
             <td class="${movingClass}">${wheel.moving ? 'yes' : 'no'}</td>
             <td>${age}s</td>
           </tr>`;
       }).join('');
+    }
+
+    function renderRangeAndScan(state) {
+      const luna = state.tf_luna_status || state.range_front;
+      if (!luna) {
+        lunaDistanceEl.textContent = 'waiting for /range/front';
+        lunaDistanceEl.className = 'warn';
+        lunaSignalEl.textContent = '?';
+        lunaTempEl.textContent = '?';
+      } else {
+        const distance = luna.distance_m ?? luna.range_m;
+        lunaDistanceEl.textContent = `${formatMeters(distance)}${ageLabel(luna, state)}`;
+        lunaDistanceEl.className = luna.valid_range === false ? 'warn' : 'ok';
+        lunaSignalEl.textContent = luna.strength !== undefined ? `${luna.strength}` : '?';
+        lunaTempEl.textContent = luna.temperature_c !== undefined ? formatNumber(luna.temperature_c, 1, ' °C') : '?';
+      }
+
+      const scan = state.scan_summary;
+      if (!scan) {
+        scanNearestEl.textContent = 'waiting for /scan';
+        scanNearestEl.className = 'warn';
+        scanFrontEl.textContent = '?';
+        scanSidesEl.textContent = '?';
+        return;
+      }
+
+      scanNearestEl.textContent = `${formatMeters(scan.nearest_m)}${ageLabel(scan, state)}`;
+      scanNearestEl.className = 'ok';
+      scanFrontEl.textContent = formatMeters(scan.front_m);
+      scanSidesEl.textContent = `${formatMeters(scan.left_m)} / ${formatMeters(scan.right_m)}`;
+    }
+
+    function renderPower(state) {
+      const power = state.power_status;
+      if (!power) {
+        powerStatusEl.textContent = 'waiting for /sensors/ina228 or /omni/power_status';
+        powerStatusEl.className = 'warn';
+        powerVoltageEl.textContent = '?';
+        powerCurrentEl.textContent = '?';
+        powerWattsEl.textContent = '?';
+        powerEnergyEl.textContent = '?';
+        powerSourceEl.textContent = 'not published yet';
+        return;
+      }
+
+      const voltage = firstNumber(power, ['bus_voltage_v', 'voltage_v', 'vbus_v', 'voltage']);
+      const current = firstNumber(power, ['current_a', 'bus_current_a', 'shunt_current_a', 'current']);
+      const watts = firstNumber(power, ['power_w', 'bus_power_w', 'power']);
+      const energy = firstNumber(power, ['energy_j', 'energy_wh', 'charge_c', 'charge_ah']);
+      const temp = firstNumber(power, ['temperature_c', 'die_temperature_c']);
+
+      powerStatusEl.textContent = `online${temp !== null ? `, ${formatNumber(temp, 1, ' °C')}` : ''}${ageLabel(power, state)}`;
+      powerStatusEl.className = 'ok';
+      powerVoltageEl.textContent = voltage !== null ? formatNumber(voltage, 2, ' V') : '?';
+      powerCurrentEl.textContent = current !== null ? formatNumber(current, 3, ' A') : '?';
+      powerWattsEl.textContent = watts !== null ? formatNumber(watts, 2, ' W') : '?';
+      powerEnergyEl.textContent = energy !== null ? formatNumber(energy, 2) : '?';
+      powerSourceEl.textContent = power._source_topic || power.source || 'power topic';
     }
 
     async function refreshState() {
@@ -298,9 +547,83 @@
         updateModeButtons();
         renderBaseStatus(state.base_status);
         renderWheelStates(state.wheel_states);
+        renderRangeAndScan(state);
+        renderPower(state);
       } catch (e) {
         bridgeStateEl.textContent = 'web disconnected';
         bridgeStateEl.className = 'bad';
+      }
+    }
+
+    function drawEmptyMap(message) {
+      const ctx = mapCanvasEl.getContext('2d');
+      ctx.fillStyle = '#151515';
+      ctx.fillRect(0, 0, mapCanvasEl.width, mapCanvasEl.height);
+      ctx.fillStyle = '#888';
+      ctx.font = '18px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(message, mapCanvasEl.width / 2, mapCanvasEl.height / 2);
+    }
+
+    function drawMap(map) {
+      if (!map || !map.available || !Array.isArray(map.cells) || !map.width || !map.height) {
+        drawEmptyMap('waiting for /map');
+        return;
+      }
+
+      const ctx = mapCanvasEl.getContext('2d');
+      const width = Number(map.width);
+      const height = Number(map.height);
+      const scale = Math.max(1, Math.floor(Math.min(mapCanvasEl.width / width, mapCanvasEl.height / height)));
+      const drawWidth = width * scale;
+      const drawHeight = height * scale;
+      const offsetX = Math.floor((mapCanvasEl.width - drawWidth) / 2);
+      const offsetY = Math.floor((mapCanvasEl.height - drawHeight) / 2);
+
+      ctx.fillStyle = '#0c0c0c';
+      ctx.fillRect(0, 0, mapCanvasEl.width, mapCanvasEl.height);
+
+      for (let y = 0; y < height; y += 1) {
+        const sourceY = height - 1 - y;
+        for (let x = 0; x < width; x += 1) {
+          const value = map.cells[sourceY * width + x];
+          if (value >= 65) ctx.fillStyle = '#ff6b6b';
+          else if (value >= 0) ctx.fillStyle = '#dbeafe';
+          else ctx.fillStyle = '#242424';
+          ctx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
+        }
+      }
+    }
+
+    async function refreshMap(force = false) {
+      if (mapFetchInFlight && !force) return;
+      mapFetchInFlight = true;
+      try {
+        const response = await fetch('/api/map');
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          mapStatusEl.textContent = 'map API error';
+          mapStatusEl.className = 'bad';
+          return;
+        }
+
+        const map = data.map;
+        if (!map) {
+          mapStatusEl.textContent = 'waiting for /map...';
+          mapStatusEl.className = 'warn';
+          drawEmptyMap('waiting for /map');
+          return;
+        }
+
+        drawMap(map);
+        const stepText = map.downsample_step && map.downsample_step > 1 ? `, downsample x${map.downsample_step}` : '';
+        mapStatusEl.textContent = `${map.source_width || map.width}×${map.source_height || map.height}, ${formatNumber(map.source_resolution_m || map.resolution_m, 2, ' m/cell')}${stepText}`;
+        mapStatusEl.className = 'ok';
+      } catch (e) {
+        mapStatusEl.textContent = 'map disconnected';
+        mapStatusEl.className = 'bad';
+      } finally {
+        mapFetchInFlight = false;
       }
     }
 
@@ -361,6 +684,7 @@
     speedEl.addEventListener('input', updateSpeedLabel);
     updateSpeedLabel();
     updateModeButtons();
+    drawEmptyMap('waiting for /map');
 
     async function sendMode(mode) {
       try {
@@ -442,10 +766,19 @@
       await setControlMode('MANUAL');
     });
 
+    mapRefreshBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await refreshMap(true);
+    });
+
     refreshPlatform();
     refreshControlMode();
     refreshState();
+    refreshMap(true);
     setInterval(refreshState, 500);
+    setInterval(() => {
+      if (mapAutoEl.checked) refreshMap();
+    }, 2000);
   </script>
 </body>
 </html>

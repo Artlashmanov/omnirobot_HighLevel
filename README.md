@@ -79,7 +79,7 @@ The high-level stack now selects a robot base through a platform profile. The cu
 
 The byte-level Pi5 <-> STM32 CAN contract is documented in [docs/can-protocol.md](docs/can-protocol.md). Update that file together with `src/omni_pi/protocol.py` whenever the STM32 CAN frame layout changes.
 
-Wheel odometry and the robot frame tree are documented in [docs/odometry.md](docs/odometry.md). SLAM/map runtime is documented in [docs/slam.md](docs/slam.md).
+Wheel odometry and the robot frame tree are documented in [docs/odometry.md](docs/odometry.md). SLAM/map runtime is documented in [docs/slam.md](docs/slam.md). Web UI telemetry is documented in [docs/ui.md](docs/ui.md).
 
 ## Quick operator commands
 
