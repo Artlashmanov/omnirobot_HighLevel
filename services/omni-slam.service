@@ -1,0 +1,17 @@
+[Unit]
+Description=Omni Robot SLAM Toolbox Mapping
+Requires=omni-lidar.service omni-odom.service
+After=network-online.target omni-lidar.service omni-odom.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=noob
+EnvironmentFile=-/etc/omni-robot/omni.env
+ExecStart=/bin/bash -lc 'exec "${OMNI_HOME:-/home/noob/omni-pi}/tools/run_slam.sh"'
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

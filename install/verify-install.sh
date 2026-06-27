@@ -32,13 +32,16 @@ echo "LIDAR_SERIAL_BAUDRATE=${LIDAR_SERIAL_BAUDRATE}"
 echo "LIDAR_FRAME_ID=${LIDAR_FRAME_ID}"
 echo "LIDAR_SCAN_MODE=${LIDAR_SCAN_MODE}"
 echo "LIDAR_USB_SERIAL_SHORT=${LIDAR_USB_SERIAL_SHORT:-}"
+echo "OMNI_ENABLE_SLAM=${OMNI_ENABLE_SLAM}"
+echo "SLAM_PARAMS=${SLAM_PARAMS}"
+echo "SLAM_USE_SIM_TIME=${SLAM_USE_SIM_TIME}"
 
 echo "== systemd =="
-systemctl is-enabled omni-can.service omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service || true
-systemctl is-active omni-can.service omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service || true
+systemctl is-enabled omni-can.service omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service omni-slam.service || true
+systemctl is-active omni-can.service omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service omni-slam.service || true
 
 echo "== service exec commands =="
-systemctl show -p ExecStart omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service --no-pager || true
+systemctl show -p ExecStart omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service omni-slam.service --no-pager || true
 
 echo "== CAN =="
 ip -details -statistics link show "${CAN_IFACE}" || true
@@ -91,6 +94,15 @@ fi
 
 echo "== LIDAR scan sample =="
 timeout 8 ros2 topic echo --once /scan || true
+echo "== SLAM toolbox =="
+if [[ "${OMNI_ENABLE_SLAM}" != "0" ]]; then
+  test -f "${SLAM_PARAMS}" && echo "params: ${SLAM_PARAMS}" || echo "missing params: ${SLAM_PARAMS}"
+  ros2 pkg prefix slam_toolbox || true
+  ros2 pkg executables slam_toolbox || true
+  timeout 8 ros2 topic echo --once /map || true
+  timeout 8 ros2 run tf2_ros tf2_echo map odom || true
+fi
+
 
 echo "== Base CAN sample =="
 timeout 3 candump "${CAN_IFACE},190:7FF,191:7FF" || true

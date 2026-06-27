@@ -46,6 +46,9 @@ export LIDAR_SCAN_MODE="${LIDAR_SCAN_MODE:-Standard}"
 export LIDAR_INVERTED="${LIDAR_INVERTED:-false}"
 export LIDAR_ANGLE_COMPENSATE="${LIDAR_ANGLE_COMPENSATE:-true}"
 export LIDAR_USB_SERIAL_SHORT="${LIDAR_USB_SERIAL_SHORT:-}"
+export OMNI_ENABLE_SLAM="${OMNI_ENABLE_SLAM:-1}"
+export SLAM_PARAMS="${SLAM_PARAMS:-${OMNI_HOME}/config/slam/slam_toolbox_online_async.yaml}"
+export SLAM_USE_SIM_TIME="${SLAM_USE_SIM_TIME:-false}"
 
 with_nounset_disabled() {
   local restore_nounset=0

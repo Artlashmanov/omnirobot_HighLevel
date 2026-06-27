@@ -63,6 +63,9 @@ ensure_env_key "LIDAR_SCAN_MODE" "Standard"
 ensure_env_key "LIDAR_INVERTED" "false"
 ensure_env_key "LIDAR_ANGLE_COMPENSATE" "true"
 ensure_env_key "LIDAR_USB_SERIAL_SHORT" ""
+ensure_env_key "OMNI_ENABLE_SLAM" "1"
+ensure_env_key "SLAM_PARAMS" '${OMNI_HOME}/config/slam/slam_toolbox_online_async.yaml'
+ensure_env_key "SLAM_USE_SIM_TIME" "false"
 
 SERVICE_TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${SERVICE_TMP_DIR}"' EXIT
@@ -80,7 +83,9 @@ cp "${SERVICE_TMP_DIR}"/*.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable omni-can.service omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service
 systemctl enable omni-lidar.service || true
+systemctl enable omni-slam.service || true
 
 echo "Services installed. Runtime config: /etc/omni-robot/omni.env"
 echo "Services run as user: ${OMNI_USER_VALUE}"
 echo "Start core stack with: sudo systemctl start omni-can omni-bridge omni-odom omni-tfluna omni-mux teleop-web"
+echo "Start mapping stack with: sudo systemctl start omni-lidar omni-slam"

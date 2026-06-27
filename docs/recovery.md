@@ -42,6 +42,7 @@ sudo ./install/install.sh
 - `omni-mux.service`: MANUAL/AUTO command mux.
 - `teleop-web.service`: Flask teleop UI.
 - `omni-lidar.service`: RPLIDAR node, optional for base bringup.
+- `omni-slam.service`: slam_toolbox mapping (`map -> odom`), requires LIDAR and odometry.
 
 ## Base telemetry smoke test
 

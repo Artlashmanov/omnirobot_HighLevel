@@ -52,6 +52,8 @@ ros2 topic echo --once /scan
 
 On the current known-good robot, the RPLIDAR C1 reports health OK and publishes `sensor_msgs/msg/LaserScan` on `/scan`.
 
+SLAM uses this scan through `slam_toolbox`; see `docs/slam.md` for the `map -> odom -> base_link -> laser` runtime graph.
+
 ## TF-Luna front range sensor
 
 The robot has a Benewake TF-Luna mounted on the front nose under the RealSense D415. It is connected directly to Raspberry Pi 5 UART0 on GPIO14/15 and publishes a standard ROS range topic.
