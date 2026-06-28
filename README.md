@@ -69,6 +69,7 @@ Core telemetry topics:
 - `/omni/rx_raw` (`std_msgs/String` JSON)
 - `/omni/base_status` (`std_msgs/String` JSON, decoded CAN `0x190`)
 - `/omni/wheel_states` (`std_msgs/String` JSON, aggregated decoded CAN `0x191`)
+- `/omni/power_status` (`std_msgs/String` JSON, decoded INA228 CAN `0x192`)
 
 
 ## Platform layer

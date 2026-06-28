@@ -12,7 +12,7 @@ manual control working and adds read-only telemetry panels.
 - `/omni/wheel_states` — last known encoder telemetry for all wheels.
 - `/range/front` and `/sensors/tf_luna/front` — front TF-Luna distance/status.
 - `/scan` — reduced LIDAR summary only: nearest/front/left/right distances.
-- `/sensors/ina228` or `/omni/power_status` — future INA228 power JSON topic.
+- `/omni/power_status` — decoded STM32 INA228 power telemetry.
 
 The fast state API does not stream raw laser scans to the browser.
 
@@ -40,23 +40,25 @@ stationary or sees the same area from the same pose.
 
 ## INA228 status
 
-There is no live INA228 ROS topic on the current Pi5 system yet. The UI already
-subscribes to the future JSON topics below and will show data automatically once
-one of them is published:
+The cockpit power block reads decoded STM32 INA228 telemetry from:
 
-- `/sensors/ina228`
 - `/omni/power_status`
 
-Recommended future JSON fields:
+The web backend also accepts `/sensors/ina228` as a future/raw sensor alias, but
+`/omni/power_status` is the primary high-level topic. Expected JSON fields:
 
 ```json
 {
-  "type": "ina228",
+  "type": "ina228_status",
+  "source": "stm32",
   "bus_voltage_v": 12.4,
   "current_a": 1.2,
-  "power_w": 14.9,
-  "energy_j": 1234.5,
-  "temperature_c": 36.0
+  "power_w": 14.88,
+  "power_w_raw": 15,
+  "flags": 3,
+  "ina228_present": true,
+  "measurement_valid": true,
+  "sensor_error": false
 }
 ```
 

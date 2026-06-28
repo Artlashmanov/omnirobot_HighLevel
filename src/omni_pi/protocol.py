@@ -14,6 +14,7 @@ ID_EVT_PONG = 0x183
 ID_EVT_TELEMETRY = 0x184
 ID_EVT_BASE_STATUS = 0x190
 ID_EVT_WHEEL_STATE = 0x191
+ID_EVT_INA228_STATUS = 0x192
 ID_EVT_ERROR = 0x1FF
 
 BASE_STATUS_FLAG_ENCODERS_READY = 1 << 0
@@ -25,6 +26,14 @@ BASE_ERROR_FLAG_CAN_RX = 1 << 1
 WHEEL_STATE_FLAG_PRESENT = 1 << 0
 WHEEL_STATE_FLAG_UPDATED = 1 << 1
 WHEEL_STATE_FLAG_MOVING = 1 << 2
+
+INA228_FLAG_PRESENT = 1 << 0
+INA228_FLAG_MEASUREMENT_VALID = 1 << 1
+INA228_FLAG_OVER_CURRENT = 1 << 2
+INA228_FLAG_OVER_VOLTAGE = 1 << 3
+INA228_FLAG_UNDER_VOLTAGE = 1 << 4
+INA228_FLAG_SENSOR_ERROR = 1 << 5
+INA228_FLAG_POWER_SATURATED = 1 << 6
 
 
 class MotionMode(IntEnum):
@@ -76,6 +85,10 @@ def motion_mode_name(value: int) -> str:
         return MotionMode(value).name
     except ValueError:
         return f"UNKNOWN_{value}"
+
+
+def _uint16_le(lo: int, hi: int) -> int:
+    return (lo & 0xFF) | ((hi & 0xFF) << 8)
 
 
 def _int16_le(lo: int, hi: int) -> int:
@@ -131,6 +144,38 @@ def decode_wheel_state_data(data: list[int]) -> dict:
         "moving": bool(flags & WHEEL_STATE_FLAG_MOVING),
         "delta_ticks": _int16_le(data[2], data[3]),
         "speed_ticks_per_sec": _int32_le(data[4], data[5], data[6], data[7]),
+    }
+
+
+def decode_ina228_status_data(data: list[int]) -> dict:
+    bus_voltage_mv = _uint16_le(data[2], data[3])
+    current_ma = _int16_le(data[4], data[5])
+    power_w_raw = data[6]
+    flags = data[7]
+    bus_voltage_v = bus_voltage_mv / 1000.0
+    current_a = current_ma / 1000.0
+    calculated_power_w = bus_voltage_v * current_a
+
+    return {
+        "type": "ina228_status",
+        "source": "stm32",
+        "proto_version": data[0],
+        "protocol_version": data[0],
+        "seq": data[1],
+        "bus_voltage_mv": bus_voltage_mv,
+        "bus_voltage_v": round(bus_voltage_v, 3),
+        "current_ma": current_ma,
+        "current_a": round(current_a, 3),
+        "power_w_raw": power_w_raw,
+        "power_w": round(calculated_power_w, 3),
+        "flags": flags,
+        "ina228_present": bool(flags & INA228_FLAG_PRESENT),
+        "measurement_valid": bool(flags & INA228_FLAG_MEASUREMENT_VALID),
+        "over_current": bool(flags & INA228_FLAG_OVER_CURRENT),
+        "over_voltage": bool(flags & INA228_FLAG_OVER_VOLTAGE),
+        "under_voltage": bool(flags & INA228_FLAG_UNDER_VOLTAGE),
+        "sensor_error": bool(flags & INA228_FLAG_SENSOR_ERROR),
+        "power_saturated": bool(flags & INA228_FLAG_POWER_SATURATED),
     }
 
 

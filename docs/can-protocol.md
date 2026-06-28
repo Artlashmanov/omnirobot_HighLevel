@@ -42,6 +42,7 @@ The current Pi decoder pads shorter received frames to 8 bytes before decoding, 
 | `0x184` | `TELEMETRY` | Legacy/raw telemetry, currently only forwarded as raw/status text |
 | `0x190` | `BASE_STATUS` | Periodic base status, expected about 5 Hz |
 | `0x191` | `WHEEL_STATE` | Round-robin wheel telemetry, one wheel per frame |
+| `0x192` | `INA228_STATUS` | INA228 power telemetry, expected about 5 Hz |
 | `0x1FF` | `ERROR` | Legacy/raw error, currently only forwarded as raw/status text |
 
 ## Common fields
@@ -288,6 +289,56 @@ Direction convention:
 
 Pi aggregates the last known state of each wheel and publishes JSON to `/omni/wheel_states`.
 
+### `INA228_STATUS` `0x192`
+
+Periodic power telemetry from the STM32-side INA228 reader. Expected rate: about 5 Hz.
+
+Payload:
+
+| Byte | Type | Meaning |
+| --- | --- | --- |
+| 0 | `uint8` | `proto_version = 1` |
+| 1 | `uint8` | STM32 rolling sequence counter |
+| 2-3 | `uint16_le` | `bus_voltage_mv` |
+| 4-5 | `int16_le` | `current_ma` |
+| 6 | `uint8` | `power_w`, saturated `0..255`; Pi also calculates precise `V * A` |
+| 7 | `uint8` | `flags` |
+
+`flags`:
+
+| Bit | Name | Meaning |
+| --- | --- | --- |
+| 0 | `ina228_present` | INA228 was detected by STM32 |
+| 1 | `measurement_valid` | Voltage/current measurement is valid |
+| 2 | `over_current` | Over-current condition |
+| 3 | `over_voltage` | Over-voltage condition |
+| 4 | `under_voltage` | Under-voltage condition |
+| 5 | `sensor_error` | STM32 could not read INA228 over I2C |
+| 6 | `power_saturated` | Byte 6 saturated at `255 W` |
+| 7 | reserved | Reserved for future use |
+
+Normal flags value is `0x03`: `ina228_present` + `measurement_valid`.
+
+If flags are `0x20`, STM32 firmware and CAN are alive, but INA228 is not being read successfully over I2C. Check INA228 power, GND, SDA/SCL, I2C address `0x40`, and STM32 I2C1 wiring/config.
+
+Pi publishes decoded JSON to `/omni/power_status`.
+
+Example raw frame:
+
+```text
+can0  192   [8]  01 28 98 2D D4 00 02 03
+```
+
+Decoded meaning:
+
+- protocol v1
+- seq `0x28`
+- bus voltage `0x2D98` = `11672 mV` = `11.672 V`
+- current `0x00D4` = `212 mA` = `0.212 A`
+- raw power byte `2 W`
+- Pi calculated power about `2.474 W`
+- flags `0x03`: INA228 present and measurement valid
+
 ### `TELEMETRY` `0x184` and `ERROR` `0x1FF`
 
 These frames are currently treated as legacy/raw frames by the Pi bridge.
@@ -309,6 +360,7 @@ If either frame becomes part of the stable STM32 contract, define its byte layou
 | `0x181`, `0x182`, `0x183`, `0x184`, `0x1FF` | `/omni/status_json` | `std_msgs/String` JSON | Structured status |
 | `0x190` | `/omni/base_status` | `std_msgs/String` JSON | Decoded base state |
 | `0x191` | `/omni/wheel_states` | `std_msgs/String` JSON | Aggregated wheel states |
+| `0x192` | `/omni/power_status` | `std_msgs/String` JSON | Decoded INA228 power telemetry |
 
 ## ROS commands accepted by Pi before CAN encoding
 
@@ -333,7 +385,7 @@ The current bridge does not map `/cmd_vel` sideways motion to `LEFT`/`RIGHT`; si
 Listen to STM32 traffic:
 
 ```bash
-candump can0,181:7FF,182:7FF,183:7FF,190:7FF,191:7FF
+candump can0,181:7FF,182:7FF,183:7FF,190:7FF,191:7FF,192:7FF
 ```
 
 Direct command checks:
@@ -354,6 +406,7 @@ Telemetry rate check over 6 seconds on known-good STM32 firmware:
 
 - `0x190`: about 30 frames
 - `0x191`: about 240 frames
+- `0x192`: about 30 frames
 - `wheel_index 0/1/2/3`: about 60 frames each
 
 Known-good STM32 reference:

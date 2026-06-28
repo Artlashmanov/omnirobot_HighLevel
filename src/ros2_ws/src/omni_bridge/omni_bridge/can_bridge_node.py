@@ -82,12 +82,14 @@ class OmniCanBridgeNode(Node):
         self.last_sent_speed = None
         self.last_base_status = None
         self.wheel_states = {}
+        self.last_power_status = None
 
         self.status_text_pub = self.create_publisher(String, '/omni/status_text', 10)
         self.status_json_pub = self.create_publisher(String, '/omni/status_json', 10)
         self.rx_raw_pub = self.create_publisher(String, '/omni/rx_raw', 20)
         self.base_status_pub = self.create_publisher(String, '/omni/base_status', 10)
         self.wheel_states_pub = self.create_publisher(String, '/omni/wheel_states', 10)
+        self.power_status_pub = self.create_publisher(String, '/omni/power_status', 10)
 
         self.cmd_vel_sub = self.create_subscription(Twist, '/cmd_vel', self.on_cmd_vel, 10)
         self.motion_cmd_sub = self.create_subscription(String, '/omni/motion_cmd', self.on_motion_cmd, 10)
@@ -226,6 +228,13 @@ class OmniCanBridgeNode(Node):
         self.last_base_status = payload
         self.publish_json_msg(self.base_status_pub, payload)
 
+    def publish_power_status(self, decoded: dict, raw: dict) -> None:
+        payload = protocol.decode_ina228_status_data(decoded['data'])
+        payload['raw'] = raw
+        payload['received_time_sec'] = time.time()
+        self.last_power_status = payload
+        self.publish_json_msg(self.power_status_pub, payload)
+
     def publish_wheel_state(self, decoded: dict, raw: dict) -> None:
         now_monotonic = time.monotonic()
         payload = protocol.decode_wheel_state_data(decoded['data'])
@@ -265,6 +274,10 @@ class OmniCanBridgeNode(Node):
 
         if can_id == protocol.ID_EVT_WHEEL_STATE:
             self.publish_wheel_state(decoded, decoded)
+            return
+
+        if can_id == protocol.ID_EVT_INA228_STATUS:
+            self.publish_power_status(decoded, decoded)
             return
 
         if can_id == protocol.ID_EVT_ACK:

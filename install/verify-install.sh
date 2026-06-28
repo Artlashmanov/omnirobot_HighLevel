@@ -73,6 +73,9 @@ echo "== Base telemetry topics =="
 timeout 8 ros2 topic echo --once /omni/base_status || true
 timeout 8 ros2 topic echo --once /omni/wheel_states || true
 
+echo "== INA228 power telemetry =="
+timeout 8 ros2 topic echo --once /omni/power_status || true
+
 echo "== Odometry and TF =="
 ros2 pkg executables omni_bridge | grep wheel_odometry || true
 timeout 8 ros2 topic echo --once /odom || true
@@ -105,4 +108,4 @@ fi
 
 
 echo "== Base CAN sample =="
-timeout 3 candump "${CAN_IFACE},190:7FF,191:7FF" || true
+timeout 3 candump "${CAN_IFACE},190:7FF,191:7FF,192:7FF" || true
