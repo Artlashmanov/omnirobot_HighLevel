@@ -24,5 +24,6 @@ ros-jazzy-nav-msgs
 ros-jazzy-tf2-ros
 ros-jazzy-rviz2
 ros-jazzy-slam-toolbox
+ros-jazzy-nav2-map-server
 udev
 usbutils

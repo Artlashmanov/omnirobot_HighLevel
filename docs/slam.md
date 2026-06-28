@@ -75,3 +75,25 @@ ros2 run tf2_ros tf2_echo map odom
 On the known-good robot, `omni-lidar.service` publishes `/scan` at about 10 Hz.
 A temporary `slam_toolbox` launch using `base_frame=base_link` successfully
 published `/map` and `map -> odom`, confirming that the ROS graph is compatible.
+
+## Map persistence
+
+The live `/map` topic is not enough for a reusable robot map: it exists while the SLAM process is running. Persistent maps are saved under `OMNI_MAPS_DIR`, which defaults to `${OMNI_HOME}/maps`.
+
+Save the current SLAM map from the command line:
+
+```bash
+/home/noob/omni-pi/tools/save_map.sh apartment_001
+```
+
+The web cockpit also exposes a `Save map` button. It calls the same script and stores the result as:
+
+```text
+maps/<map_name>/
+  map.yaml          # occupancy grid metadata
+  map.pgm           # 2D occupancy grid image
+  metadata.json     # robot/sensor/runtime metadata
+  slam_posegraph*   # optional, if slam_toolbox serialization is available
+```
+
+`map.yaml + map.pgm` are the navigation map. The optional `slam_posegraph*` artifact is useful later when we want to continue or refine a mapping session instead of only using the flattened occupancy grid.

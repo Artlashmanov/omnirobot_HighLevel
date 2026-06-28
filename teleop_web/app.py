@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 import copy
+import datetime as dt
 import hashlib
 import json
 import math
 import os
+from pathlib import Path
+import re
+import subprocess
 import threading
 import time
 from flask import Flask, jsonify, render_template, request
@@ -18,6 +22,114 @@ from std_msgs.msg import String
 
 from omni_pi.platforms import load_platform_profile, normalize_motion_payload
 
+
+
+PROJECT_ROOT = Path(os.environ.get('OMNI_HOME', Path(__file__).resolve().parents[1])).resolve()
+MAP_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$')
+
+
+def get_maps_dir() -> Path:
+    return Path(os.environ.get('OMNI_MAPS_DIR', str(PROJECT_ROOT / 'maps'))).resolve()
+
+
+def sanitize_map_name(raw_name: str | None) -> str:
+    name = (raw_name or '').strip()
+    if not name:
+        name = dt.datetime.now().strftime('map_%Y%m%d_%H%M%S')
+    name = re.sub(r'[^A-Za-z0-9_.-]+', '_', name).strip('._-')
+    if not name:
+        name = dt.datetime.now().strftime('map_%Y%m%d_%H%M%S')
+    if len(name) > 64:
+        name = name[:64].rstrip('._-')
+    if not MAP_NAME_RE.fullmatch(name):
+        raise ValueError('map name must use letters, digits, dot, dash or underscore')
+    return name
+
+
+def read_json_file(path: Path) -> dict | None:
+    try:
+        with path.open('r', encoding='utf-8') as fh:
+            payload = json.load(fh)
+        return payload if isinstance(payload, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def map_entry(map_dir: Path) -> dict:
+    yaml_file = map_dir / 'map.yaml'
+    pgm_file = map_dir / 'map.pgm'
+    png_file = map_dir / 'map.png'
+    metadata_file = map_dir / 'metadata.json'
+    posegraph_files = sorted(
+        item.name
+        for item in map_dir.iterdir()
+        if item.is_file() and item.name.startswith('slam_posegraph')
+    )
+    files = [item for item in map_dir.iterdir() if item.is_file()]
+    modified = max((item.stat().st_mtime for item in files), default=map_dir.stat().st_mtime)
+    total_size = sum(item.stat().st_size for item in files)
+
+    return {
+        'name': map_dir.name,
+        'path': str(map_dir),
+        'modified_time_sec': modified,
+        'total_size_bytes': total_size,
+        'has_occupancy_grid': yaml_file.exists() and (pgm_file.exists() or png_file.exists()),
+        'has_posegraph': bool(posegraph_files),
+        'files': sorted(item.name for item in files),
+        'posegraph_files': posegraph_files,
+        'metadata': read_json_file(metadata_file),
+    }
+
+
+def list_saved_maps() -> list[dict]:
+    maps_dir = get_maps_dir()
+    if not maps_dir.exists():
+        return []
+    entries = [
+        map_entry(item)
+        for item in maps_dir.iterdir()
+        if item.is_dir() and not item.name.startswith('.')
+    ]
+    entries.sort(key=lambda item: item['modified_time_sec'], reverse=True)
+    return entries
+
+
+def save_current_map(raw_name: str | None) -> dict:
+    name = sanitize_map_name(raw_name)
+    maps_dir = get_maps_dir()
+    script = Path(os.environ.get('OMNI_SAVE_MAP_SCRIPT', str(PROJECT_ROOT / 'tools' / 'save_map.sh'))).resolve()
+    if not script.exists():
+        raise RuntimeError(f'map save script not found: {script}')
+
+    env = os.environ.copy()
+    env.setdefault('OMNI_HOME', str(PROJECT_ROOT))
+    env.setdefault('OMNI_MAPS_DIR', str(maps_dir))
+
+    timeout_sec = int(os.environ.get('TELEOP_MAP_SAVE_TIMEOUT_SEC', '45'))
+    completed = subprocess.run(
+        [str(script), name],
+        cwd=str(PROJECT_ROOT),
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout_sec,
+        check=False,
+    )
+
+    if completed.returncode != 0:
+        raise RuntimeError(
+            'map save failed: '
+            + (completed.stderr.strip() or completed.stdout.strip() or f'exit code {completed.returncode}')
+        )
+
+    saved_dir = maps_dir / name
+    return {
+        'name': name,
+        'stdout': completed.stdout.strip(),
+        'stderr': completed.stderr.strip(),
+        'map': map_entry(saved_dir) if saved_dir.exists() else None,
+    }
 
 
 class TeleopWebNode(Node):
@@ -461,6 +573,36 @@ def api_map():
     })
     response.headers['Cache-Control'] = 'no-store, max-age=0'
     return response
+
+
+
+@app.route('/api/maps', methods=['GET'])
+def api_maps():
+    return jsonify({
+        'ok': True,
+        'maps_dir': str(get_maps_dir()),
+        'maps': list_saved_maps(),
+    })
+
+
+@app.route('/api/maps/save', methods=['POST'])
+def api_save_map():
+    payload = request.get_json(force=True, silent=True) or {}
+    try:
+        result = save_current_map(payload.get('name'))
+    except ValueError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    except subprocess.TimeoutExpired:
+        return jsonify({'ok': False, 'error': 'map save timed out'}), 504
+    except RuntimeError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    return jsonify({
+        'ok': True,
+        'result': result,
+        'maps_dir': str(get_maps_dir()),
+        'maps': list_saved_maps(),
+    })
 
 
 @app.route('/api/scan', methods=['GET'])

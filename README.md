@@ -10,6 +10,7 @@ This repository contains the Pi-side software stack:
 - Flask web teleop UI;
 - Slamtec RPLIDAR C1 ROS2 driver integration;
 - slam_toolbox mapping integration;
+- persistent map save/list flow;
 - systemd service definitions;
 - install, verify, recovery, and inventory helpers.
 
@@ -80,7 +81,9 @@ The high-level stack now selects a robot base through a platform profile. The cu
 
 The byte-level Pi5 <-> STM32 CAN contract is documented in [docs/can-protocol.md](docs/can-protocol.md). Update that file together with `src/omni_pi/protocol.py` whenever the STM32 CAN frame layout changes.
 
-Wheel odometry and the robot frame tree are documented in [docs/odometry.md](docs/odometry.md). SLAM/map runtime is documented in [docs/slam.md](docs/slam.md). Web UI telemetry is documented in [docs/ui.md](docs/ui.md).
+Wheel odometry and the robot frame tree are documented in [docs/odometry.md](docs/odometry.md). SLAM/map runtime and map persistence are documented in [docs/slam.md](docs/slam.md). Web UI telemetry is documented in [docs/ui.md](docs/ui.md).
+
+Saved maps are stored under `${OMNI_MAPS_DIR:-${OMNI_HOME}/maps}`. Generated map captures are intentionally ignored by git; the repository tracks only the map directory documentation and tooling.
 
 ## Quick operator commands
 

@@ -32,3 +32,8 @@ Thumbs.db
 .codex/
 *.tmp
 src/ros2_ws/src/sllidar_ros2/
+
+# Runtime map captures
+maps/*/
+!maps/README.md
+!maps/.gitkeep

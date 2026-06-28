@@ -66,6 +66,10 @@ ensure_env_key "LIDAR_USB_SERIAL_SHORT" ""
 ensure_env_key "OMNI_ENABLE_SLAM" "1"
 ensure_env_key "SLAM_PARAMS" '${OMNI_HOME}/config/slam/slam_toolbox_online_async.yaml'
 ensure_env_key "SLAM_USE_SIM_TIME" "false"
+ensure_env_key "OMNI_MAPS_DIR" '${OMNI_HOME}/maps'
+
+install -d -m 0755 "${PROJECT_DIR}/maps"
+chown "${OMNI_USER_VALUE}:${OMNI_USER_VALUE}" "${PROJECT_DIR}/maps" 2>/dev/null || chown "${OMNI_USER_VALUE}" "${PROJECT_DIR}/maps" || true
 
 SERVICE_TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${SERVICE_TMP_DIR}"' EXIT

@@ -35,6 +35,7 @@ echo "LIDAR_USB_SERIAL_SHORT=${LIDAR_USB_SERIAL_SHORT:-}"
 echo "OMNI_ENABLE_SLAM=${OMNI_ENABLE_SLAM}"
 echo "SLAM_PARAMS=${SLAM_PARAMS}"
 echo "SLAM_USE_SIM_TIME=${SLAM_USE_SIM_TIME}"
+echo "OMNI_MAPS_DIR=${OMNI_MAPS_DIR}"
 
 echo "== systemd =="
 systemctl is-enabled omni-can.service omni-bridge.service omni-odom.service omni-tfluna.service omni-mux.service teleop-web.service omni-lidar.service omni-slam.service || true
@@ -106,6 +107,13 @@ if [[ "${OMNI_ENABLE_SLAM}" != "0" ]]; then
   timeout 8 ros2 run tf2_ros tf2_echo map odom || true
 fi
 
+
+echo "== Map persistence =="
+echo "maps dir: ${OMNI_MAPS_DIR}"
+test -x "${OMNI_HOME}/tools/save_map.sh" && echo "save script: ${OMNI_HOME}/tools/save_map.sh" || echo "missing/non-executable save script: ${OMNI_HOME}/tools/save_map.sh"
+ros2 pkg prefix nav2_map_server || true
+ros2 pkg executables nav2_map_server || true
+ls -la "${OMNI_MAPS_DIR}" 2>/dev/null || true
 
 echo "== Base CAN sample =="
 timeout 3 candump "${CAN_IFACE},190:7FF,191:7FF,192:7FF" || true
