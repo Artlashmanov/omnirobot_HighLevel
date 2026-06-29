@@ -21,13 +21,21 @@ fi
 
 maps_dir="${OMNI_MAPS_DIR:-${OMNI_HOME}/maps}"
 map_dir="${maps_dir}/${name}"
+tmp_dir="${maps_dir}/.${name}.tmp.$$"
 mkdir -p "${maps_dir}"
 
 if [[ -e "${map_dir}" ]]; then
   echo "Map already exists: ${map_dir}" >&2
   exit 2
 fi
-mkdir -p "${map_dir}"
+
+cleanup_tmp() {
+  if [[ -n "${tmp_dir:-}" && -d "${tmp_dir}" ]]; then
+    rm -rf "${tmp_dir}"
+  fi
+}
+trap cleanup_tmp EXIT
+mkdir -p "${tmp_dir}"
 
 echo "Waiting for one /map message..." >&2
 timeout "${MAP_SAVE_WAIT_TIMEOUT_SEC:-10}" ros2 topic echo --once /map >/dev/null
@@ -37,13 +45,13 @@ if ! ros2 pkg prefix nav2_map_server >/dev/null 2>&1; then
   exit 3
 fi
 
-echo "Saving occupancy grid to ${map_dir}/map.yaml + map.pgm" >&2
-ros2 run nav2_map_server map_saver_cli -f "${map_dir}/map" >&2
+echo "Saving occupancy grid to ${tmp_dir}/map.yaml + map.pgm" >&2
+ros2 run nav2_map_server map_saver_cli -f "${tmp_dir}/map" >&2
 
 posegraph_saved=false
 if ros2 service list | grep -Fxq "/slam_toolbox/serialize_map"; then
-  echo "Serializing slam_toolbox pose graph to ${map_dir}/slam_posegraph*" >&2
-  if timeout "${POSEGRAPH_SAVE_TIMEOUT_SEC:-15}" ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '${map_dir}/slam_posegraph'}" >&2; then
+  echo "Serializing slam_toolbox pose graph to ${tmp_dir}/slam_posegraph*" >&2
+  if timeout "${POSEGRAPH_SAVE_TIMEOUT_SEC:-15}" ros2 service call /slam_toolbox/serialize_map slam_toolbox/srv/SerializePoseGraph "{filename: '${tmp_dir}/slam_posegraph'}" >&2; then
     posegraph_saved=true
   else
     echo "Warning: slam_toolbox pose graph serialization failed; occupancy grid was still saved." >&2
@@ -52,7 +60,7 @@ else
   echo "slam_toolbox serialize service is not available; saved occupancy grid only." >&2
 fi
 
-python3 - "${map_dir}" "${name}" "${posegraph_saved}" <<'PY'
+python3 - "${tmp_dir}" "${name}" "${posegraph_saved}" <<'PY'
 import json
 import os
 import sys
@@ -75,5 +83,22 @@ metadata = {
     "files": files,
 }
 (map_dir / "metadata.json").write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+
+if [[ -e "${map_dir}" ]]; then
+  echo "Map appeared while saving, refusing to overwrite: ${map_dir}" >&2
+  exit 2
+fi
+mv "${tmp_dir}" "${map_dir}"
+trap - EXIT
+
+python3 - "${map_dir}" "${name}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+map_dir = Path(sys.argv[1])
+name = sys.argv[2]
+files = sorted(item.name for item in map_dir.iterdir() if item.is_file())
 print(json.dumps({"ok": True, "name": name, "path": str(map_dir), "files": files}, ensure_ascii=False))
 PY

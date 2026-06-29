@@ -56,13 +56,17 @@ def parameter_list(value: object, length: int, default: Iterable[float]) -> list
 
 
 class WheelOdometryNode(Node):
-    """Dead-reckoning odometry from STM32 wheel telemetry.
+    """Dead-reckoning odometry from signed STM32 wheel telemetry.
 
-    The current STM32 protocol exposes discrete base motion mode plus per-wheel
-    encoder deltas. Until full omni wheel kinematics are calibrated, this node
-    projects encoder magnitude through the active motion mode. The scale factors
-    are intentionally parameters, because they must be calibrated on the real
-    robot before SLAM/navigation relies on metric accuracy.
+    The robot exposes per-wheel signed encoder deltas through WHEEL_STATE. The
+    node integrates a calibrated 4-wheel omni signature:
+
+        FORWARD:    + + + +
+        PHYSICAL LEFT: - + + -
+        PHYSICAL ROTATE_CCW: - + - +
+
+    That lets odometry use measured wheel motion instead of projecting encoder
+    magnitude through the latest high-level motion command.
     """
 
     def __init__(self):
@@ -72,6 +76,7 @@ class WheelOdometryNode(Node):
         self.declare_parameter('base_status_topic', '/omni/base_status')
         self.declare_parameter('motion_cmd_topic', '/omni/motion_cmd')
         self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('reset_topic', '/omni/odom_reset')
         self.declare_parameter('odom_topic', '/odom')
         self.declare_parameter('odom_frame_id', 'odom')
         self.declare_parameter('base_frame_id', 'base_link')
@@ -92,6 +97,7 @@ class WheelOdometryNode(Node):
         self.base_status_topic = str(self.get_parameter('base_status_topic').value)
         self.motion_cmd_topic = str(self.get_parameter('motion_cmd_topic').value)
         self.cmd_vel_topic = str(self.get_parameter('cmd_vel_topic').value)
+        self.reset_topic = str(self.get_parameter('reset_topic').value)
         self.odom_topic = str(self.get_parameter('odom_topic').value)
         self.odom_frame_id = str(self.get_parameter('odom_frame_id').value)
         self.base_frame_id = str(self.get_parameter('base_frame_id').value)
@@ -116,6 +122,10 @@ class WheelOdometryNode(Node):
         self.vyaw = 0.0
         self.motion_mode_name = MOTION_STOP
         self.last_wheel_update_times: dict[int, float] = {}
+        self.pending_wheel_ticks: dict[int, float] = {}
+        self.pending_wheel_indexes: set[int] = set()
+        self.latest_wheel_speeds: dict[int, float] = {}
+        self.expected_wheel_indexes = tuple(range(4))
         self.last_motion_monotonic_sec = 0.0
 
         self.odom_pub = self.create_publisher(Odometry, self.odom_topic, 20)
@@ -126,6 +136,7 @@ class WheelOdometryNode(Node):
         self.create_subscription(String, self.motion_cmd_topic, self.on_motion_cmd, 20)
         self.create_subscription(Twist, self.cmd_vel_topic, self.on_cmd_vel, 20)
         self.create_subscription(String, self.wheel_states_topic, self.on_wheel_states, 30)
+        self.create_subscription(String, self.reset_topic, self.on_odom_reset, 10)
         self.create_timer(self.publish_period_sec, self.publish_odometry)
 
         if self.publish_laser_tf:
@@ -133,10 +144,30 @@ class WheelOdometryNode(Node):
 
         self.get_logger().info(
             f'omni_odometry started: wheel_states={self.wheel_states_topic}, '
-            f'motion_cmd={self.motion_cmd_topic}, cmd_vel={self.cmd_vel_topic}, odom={self.odom_topic}, '
+            f'motion_cmd={self.motion_cmd_topic}, cmd_vel={self.cmd_vel_topic}, '
+            f'reset={self.reset_topic}, odom={self.odom_topic}, '
             f'frames={self.odom_frame_id}->{self.base_frame_id}->{self.laser_frame_id}, '
-            f'meters_per_tick={self.meters_per_tick}, radians_per_tick={self.radians_per_tick}'
+            f'kinematics=signed_omni4, meters_per_tick={self.meters_per_tick}, '
+            f'radians_per_tick={self.radians_per_tick}'
         )
+
+    def reset_odometry(self, reason: str) -> None:
+        self.x = 0.0
+        self.y = 0.0
+        self.yaw = 0.0
+        self.vx = 0.0
+        self.vy = 0.0
+        self.vyaw = 0.0
+        self.motion_mode_name = MOTION_STOP
+        self.pending_wheel_ticks.clear()
+        self.pending_wheel_indexes.clear()
+        self.latest_wheel_speeds.clear()
+        self.last_motion_monotonic_sec = time.monotonic()
+        self.get_logger().info(f'odometry reset: {reason}')
+
+    def on_odom_reset(self, msg: String) -> None:
+        reason = (msg.data or 'manual').strip() or 'manual'
+        self.reset_odometry(reason)
 
     def set_motion_mode(self, mode: str, source: str) -> None:
         normalized = str(mode or MOTION_STOP).upper()
@@ -204,13 +235,7 @@ class WheelOdometryNode(Node):
         if not isinstance(wheels, list):
             return
 
-        wheel_count = int(payload.get('wheel_count') or self.wheel_count or len(wheels) or 1)
-        wheel_count = max(1, wheel_count)
-
-        new_tick_magnitude = 0.0
         new_update_count = 0
-        fresh_speed_sum = 0.0
-        fresh_speed_count = 0
 
         for wheel in wheels:
             if not isinstance(wheel, dict):
@@ -228,14 +253,6 @@ class WheelOdometryNode(Node):
             except (TypeError, ValueError):
                 update_time = 0.0
 
-            age = float(wheel.get('last_update_age_sec', 0.0) or 0.0)
-            if age <= self.stale_wheel_age_sec:
-                try:
-                    fresh_speed_sum += abs(float(wheel.get('speed_ticks_per_sec', 0.0) or 0.0))
-                    fresh_speed_count += 1
-                except (TypeError, ValueError):
-                    pass
-
             if self.last_wheel_update_times.get(wheel_index) == update_time:
                 continue
             self.last_wheel_update_times[wheel_index] = update_time
@@ -248,56 +265,58 @@ class WheelOdometryNode(Node):
             if abs(delta_ticks) <= self.min_delta_ticks:
                 continue
 
-            new_tick_magnitude += abs(float(delta_ticks))
+            self.pending_wheel_ticks[wheel_index] = self.pending_wheel_ticks.get(wheel_index, 0.0) + float(delta_ticks)
+            self.pending_wheel_indexes.add(wheel_index)
+
+            try:
+                self.latest_wheel_speeds[wheel_index] = float(wheel.get('speed_ticks_per_sec', 0.0) or 0.0)
+            except (TypeError, ValueError):
+                self.latest_wheel_speeds[wheel_index] = 0.0
+
             new_update_count += 1
 
         if new_update_count == 0:
             return
 
-        # WHEEL_STATE is sent round-robin, so each aggregate usually contains
-        # one new wheel sample. Dividing by wheel_count makes one full cycle of
-        # four similar wheel deltas integrate as one robot motion delta.
-        ticks = new_tick_magnitude / float(wheel_count)
-        speed_ticks = fresh_speed_sum / float(fresh_speed_count) if fresh_speed_count else 0.0
-        self.integrate_motion_mode_projection(ticks, speed_ticks)
-
-    def integrate_motion_mode_projection(self, ticks: float, speed_ticks_per_sec: float) -> None:
-        mode = self.motion_mode_name
-        dx_body = 0.0
-        dy_body = 0.0
-        dyaw = 0.0
-        vx_body = 0.0
-        vy_body = 0.0
-        vyaw = 0.0
-
-        distance = ticks * self.meters_per_tick
-        angle = ticks * self.radians_per_tick
-        linear_speed = speed_ticks_per_sec * self.meters_per_tick
-        angular_speed = speed_ticks_per_sec * self.radians_per_tick
-
-        if mode == MOTION_FORWARD:
-            dx_body = distance
-            vx_body = linear_speed
-        elif mode == MOTION_BACKWARD:
-            dx_body = -distance
-            vx_body = -linear_speed
-        elif mode == MOTION_LEFT:
-            dy_body = distance
-            vy_body = linear_speed
-        elif mode == MOTION_RIGHT:
-            dy_body = -distance
-            vy_body = -linear_speed
-        elif mode == MOTION_ROTATE_CCW:
-            dyaw = angle
-            vyaw = angular_speed
-        elif mode == MOTION_ROTATE_CW:
-            dyaw = -angle
-            vyaw = -angular_speed
-        else:
-            self.vx = 0.0
-            self.vy = 0.0
-            self.vyaw = 0.0
+        if not all(index in self.pending_wheel_indexes for index in self.expected_wheel_indexes):
             return
+
+        wheel_ticks = {index: self.pending_wheel_ticks.get(index, 0.0) for index in self.expected_wheel_indexes}
+        for index in self.expected_wheel_indexes:
+            self.pending_wheel_ticks[index] = 0.0
+            self.pending_wheel_indexes.discard(index)
+
+        self.integrate_signed_omni4_ticks(wheel_ticks)
+
+    @staticmethod
+    def signed_omni4_components(values: dict[int, float]) -> tuple[float, float, float]:
+        w0 = float(values.get(0, 0.0))
+        w1 = float(values.get(1, 0.0))
+        w2 = float(values.get(2, 0.0))
+        w3 = float(values.get(3, 0.0))
+
+        x_ticks = (w0 + w1 + w2 + w3) / 4.0
+        # The STM32 discrete labels LEFT/RIGHT are inverted for this chassis
+        # roller orientation: the measured physical-left signature is
+        # [-, +, +, -]. ROS uses Y+ as physical left, so lateral ticks use the
+        # opposite sign from the raw "LEFT" wheel pattern discovered by the
+        # signature test.
+        y_ticks = (-w0 + w1 + w2 - w3) / 4.0
+        # Raw STM32 ROTATE_CCW/ROTATE_CW are inverted physically on this
+        # chassis. ROS uses yaw+ as physical counter-clockwise/left turn.
+        yaw_ticks = (-w0 + w1 - w2 + w3) / 4.0
+        return x_ticks, y_ticks, yaw_ticks
+
+    def integrate_signed_omni4_ticks(self, wheel_ticks: dict[int, float]) -> None:
+        x_ticks, y_ticks, yaw_ticks = self.signed_omni4_components(wheel_ticks)
+        speed_x_ticks, speed_y_ticks, speed_yaw_ticks = self.signed_omni4_components(self.latest_wheel_speeds)
+
+        dx_body = x_ticks * self.meters_per_tick
+        dy_body = y_ticks * self.meters_per_tick
+        dyaw = yaw_ticks * self.radians_per_tick
+        vx_body = speed_x_ticks * self.meters_per_tick
+        vy_body = speed_y_ticks * self.meters_per_tick
+        vyaw = speed_yaw_ticks * self.radians_per_tick
 
         cos_yaw = math.cos(self.yaw)
         sin_yaw = math.sin(self.yaw)

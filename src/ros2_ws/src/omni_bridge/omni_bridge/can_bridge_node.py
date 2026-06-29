@@ -120,18 +120,40 @@ class OmniCanBridgeNode(Node):
         speed = max(self.min_speed_pct, min(self.max_speed_pct, speed))
         return speed
 
+    def can_mode_name_for_semantic(self, semantic_mode_name: str) -> str:
+        semantic = str(semantic_mode_name or 'STOP').strip().upper()
+        return str(self.platform.can_motion_modes.get(semantic, semantic)).strip().upper()
+
+    def semantic_mode_name_for_can(self, can_mode_name: str) -> str:
+        raw = str(can_mode_name or 'STOP').strip().upper()
+        for semantic, mapped_raw in self.platform.can_motion_modes.items():
+            if str(mapped_raw).strip().upper() == raw:
+                return str(semantic).strip().upper()
+        return raw
+
+    def motion_mode_for_semantic(self, semantic_mode_name: str) -> tuple[MotionMode, str]:
+        raw_mode_name = self.can_mode_name_for_semantic(semantic_mode_name)
+        if raw_mode_name not in MODE_FROM_NAME:
+            raise ValueError(f'Motion mode {semantic_mode_name} maps to unsupported STM32 mode {raw_mode_name}')
+        return MODE_FROM_NAME[raw_mode_name], raw_mode_name
+
     def twist_to_motion(self, linear_x: float, angular_z: float):
         if abs(linear_x) < self.linear_deadband and abs(angular_z) < self.angular_deadband:
-            return MotionMode.STOP, 0
+            mode, _ = self.motion_mode_for_semantic('STOP')
+            return mode, 0
 
         if abs(linear_x) >= abs(angular_z):
             if linear_x > 0:
-                return MotionMode.FORWARD, self.scale_to_speed_pct(abs(linear_x), self.max_linear_x)
-            return MotionMode.BACKWARD, self.scale_to_speed_pct(abs(linear_x), self.max_linear_x)
+                mode, _ = self.motion_mode_for_semantic('FORWARD')
+                return mode, self.scale_to_speed_pct(abs(linear_x), self.max_linear_x)
+            mode, _ = self.motion_mode_for_semantic('BACKWARD')
+            return mode, self.scale_to_speed_pct(abs(linear_x), self.max_linear_x)
 
         if angular_z > 0:
-            return MotionMode.ROTATE_CCW, self.scale_to_speed_pct(abs(angular_z), self.max_angular_z)
-        return MotionMode.ROTATE_CW, self.scale_to_speed_pct(abs(angular_z), self.max_angular_z)
+            mode, _ = self.motion_mode_for_semantic('ROTATE_CCW')
+            return mode, self.scale_to_speed_pct(abs(angular_z), self.max_angular_z)
+        mode, _ = self.motion_mode_for_semantic('ROTATE_CW')
+        return mode, self.scale_to_speed_pct(abs(angular_z), self.max_angular_z)
 
     def send_stop(self, reason: str = 'manual'):
         seq = self.next_seq()
@@ -175,16 +197,17 @@ class OmniCanBridgeNode(Node):
         mode_name = str(command['mode'])
         speed_pct = int(command['speed_pct'])
 
-        if mode_name not in MODE_FROM_NAME:
-            self.get_logger().error(f'Motion mode {mode_name} has no STM32 mapping')
+        try:
+            mode, raw_mode_name = self.motion_mode_for_semantic(mode_name)
+        except ValueError as e:
+            self.get_logger().error(str(e))
             return
-
-        mode = MODE_FROM_NAME[mode_name]
 
         if self.last_sent_motion == mode and self.last_sent_speed == speed_pct:
             return
 
-        self.send_motion(mode, speed_pct, reason='motion_cmd')
+        reason = f'motion_cmd semantic={mode_name} raw={raw_mode_name}' if raw_mode_name != mode_name else 'motion_cmd'
+        self.send_motion(mode, speed_pct, reason=reason)
 
     def poll_status(self):
         seq = self.next_seq()
@@ -223,6 +246,11 @@ class OmniCanBridgeNode(Node):
 
     def publish_base_status(self, decoded: dict, raw: dict) -> None:
         payload = protocol.decode_base_status_data(decoded['data'])
+        raw_mode_name = str(payload.get('motion_mode_name') or 'STOP').upper()
+        semantic_mode_name = self.semantic_mode_name_for_can(raw_mode_name)
+        payload['raw_motion_mode_name'] = raw_mode_name
+        payload['semantic_motion_mode_name'] = semantic_mode_name
+        payload['motion_mode_name'] = semantic_mode_name
         payload['raw'] = raw
         payload['received_time_sec'] = time.time()
         self.last_base_status = payload
@@ -293,7 +321,8 @@ class OmniCanBridgeNode(Node):
                 'command_id_low': data[2],
                 'result_code': data[3],
                 'current_motion_mode': data[4],
-                'current_motion_mode_name': protocol.motion_mode_name(data[4]),
+                'raw_motion_mode_name': protocol.motion_mode_name(data[4]),
+                'current_motion_mode_name': self.semantic_mode_name_for_can(protocol.motion_mode_name(data[4])),
                 'current_speed_pct': data[5],
                 'raw': decoded,
             })
@@ -309,7 +338,8 @@ class OmniCanBridgeNode(Node):
                 'proto_version': data[0],
                 'seq': data[1],
                 'current_motion_mode': data[2],
-                'current_motion_mode_name': protocol.motion_mode_name(data[2]),
+                'raw_motion_mode_name': protocol.motion_mode_name(data[2]),
+                'current_motion_mode_name': self.semantic_mode_name_for_can(protocol.motion_mode_name(data[2])),
                 'current_speed_pct': data[3],
                 'raw': decoded,
             })

@@ -11,10 +11,19 @@ DEFAULT_WHEEL_NAMES = ["front_left", "front_right", "rear_left", "rear_right"]
 DEFAULT_TELEOP_BUTTON_MODES = {
     "forward": "FORWARD",
     "backward": "BACKWARD",
-    "left": "RIGHT",
-    "right": "LEFT",
-    "rotate_ccw": "ROTATE_CW",
-    "rotate_cw": "ROTATE_CCW",
+    "left": "LEFT",
+    "right": "RIGHT",
+    "rotate_ccw": "ROTATE_CCW",
+    "rotate_cw": "ROTATE_CW",
+}
+DEFAULT_CAN_MOTION_MODES = {
+    "STOP": "STOP",
+    "FORWARD": "FORWARD",
+    "BACKWARD": "BACKWARD",
+    "LEFT": "RIGHT",
+    "RIGHT": "LEFT",
+    "ROTATE_CCW": "ROTATE_CW",
+    "ROTATE_CW": "ROTATE_CCW",
 }
 
 
@@ -28,6 +37,7 @@ class PlatformProfile:
     wheel_names: tuple[str, ...]
     cmd_vel: dict[str, Any] = field(default_factory=dict)
     teleop_button_modes: dict[str, str] = field(default_factory=dict)
+    can_motion_modes: dict[str, str] = field(default_factory=dict)
     config_path: str | None = None
 
     def supports_motion_mode(self, mode: str) -> bool:
@@ -46,6 +56,7 @@ class PlatformProfile:
             "wheel_names": list(self.wheel_names),
             "cmd_vel": dict(self.cmd_vel),
             "teleop_button_modes": dict(self.teleop_button_modes),
+            "can_motion_modes": dict(self.can_motion_modes),
             "config_path": self.config_path,
         }
 
@@ -66,6 +77,7 @@ def builtin_omni4_profile(config_path: str | None = None) -> PlatformProfile:
             "linear_y_supported": False,
         },
         teleop_button_modes=dict(DEFAULT_TELEOP_BUTTON_MODES),
+        can_motion_modes=dict(DEFAULT_CAN_MOTION_MODES),
         config_path=config_path,
     )
 
@@ -100,6 +112,13 @@ def profile_from_dict(data: dict[str, Any], config_path: str | None = None) -> P
             if isinstance(key, str) and isinstance(value, str):
                 teleop_button_modes[key.strip()] = value.strip().upper()
 
+    can_motion_modes = dict(DEFAULT_CAN_MOTION_MODES)
+    raw_can_modes = data.get("can_motion_modes")
+    if isinstance(raw_can_modes, dict):
+        for key, value in raw_can_modes.items():
+            if isinstance(key, str) and isinstance(value, str):
+                can_motion_modes[key.strip().upper()] = value.strip().upper()
+
     if "STOP" not in motion_modes:
         motion_modes = ("STOP", *motion_modes)
 
@@ -112,6 +131,7 @@ def profile_from_dict(data: dict[str, Any], config_path: str | None = None) -> P
         wheel_names=wheel_names,
         cmd_vel=dict(cmd_vel),
         teleop_button_modes=teleop_button_modes,
+        can_motion_modes=can_motion_modes,
         config_path=config_path,
     )
 

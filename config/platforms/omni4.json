@@ -29,9 +29,18 @@
   "teleop_button_modes": {
     "forward": "FORWARD",
     "backward": "BACKWARD",
-    "left": "RIGHT",
-    "right": "LEFT",
-    "rotate_ccw": "ROTATE_CW",
-    "rotate_cw": "ROTATE_CCW"
+    "left": "LEFT",
+    "right": "RIGHT",
+    "rotate_ccw": "ROTATE_CCW",
+    "rotate_cw": "ROTATE_CW"
+  },
+  "can_motion_modes": {
+    "STOP": "STOP",
+    "FORWARD": "FORWARD",
+    "BACKWARD": "BACKWARD",
+    "LEFT": "RIGHT",
+    "RIGHT": "LEFT",
+    "ROTATE_CCW": "ROTATE_CW",
+    "ROTATE_CW": "ROTATE_CCW"
   }
 }

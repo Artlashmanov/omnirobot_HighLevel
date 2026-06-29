@@ -54,6 +54,63 @@ def read_json_file(path: Path) -> dict | None:
     except (OSError, json.JSONDecodeError):
         return None
 
+def project_script_path(env_name: str, default_name: str) -> Path:
+    return Path(os.environ.get(env_name, str(PROJECT_ROOT / 'tools' / default_name))).resolve()
+
+
+def parse_json_from_stdout(stdout: str) -> dict | None:
+    for line in reversed((stdout or '').splitlines()):
+        stripped = line.strip()
+        if not stripped.startswith('{'):
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def run_project_script(
+    env_name: str,
+    default_name: str,
+    args: list[str] | None = None,
+    timeout_env: str = 'TELEOP_MAP_ACTION_TIMEOUT_SEC',
+    default_timeout_sec: int = 30,
+) -> dict:
+    script = project_script_path(env_name, default_name)
+    if not script.exists():
+        raise RuntimeError(f'map action script not found: {script}')
+
+    env = os.environ.copy()
+    env.setdefault('OMNI_HOME', str(PROJECT_ROOT))
+    env.setdefault('OMNI_MAPS_DIR', str(get_maps_dir()))
+
+    timeout_sec = int(os.environ.get(timeout_env, str(default_timeout_sec)))
+    completed = subprocess.run(
+        [str(script), *(args or [])],
+        cwd=str(PROJECT_ROOT),
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=timeout_sec,
+        check=False,
+    )
+
+    stdout = completed.stdout.strip()
+    stderr = completed.stderr.strip()
+    if completed.returncode != 0:
+        detail = stderr or stdout or f'exit code {completed.returncode}'
+        raise RuntimeError(f'{default_name} failed: {detail}')
+
+    return {
+        'stdout': stdout,
+        'stderr': stderr,
+        'tool': parse_json_from_stdout(stdout),
+    }
+
+
 
 def map_entry(map_dir: Path) -> dict:
     yaml_file = map_dir / 'map.yaml'
@@ -98,37 +155,57 @@ def list_saved_maps() -> list[dict]:
 def save_current_map(raw_name: str | None) -> dict:
     name = sanitize_map_name(raw_name)
     maps_dir = get_maps_dir()
-    script = Path(os.environ.get('OMNI_SAVE_MAP_SCRIPT', str(PROJECT_ROOT / 'tools' / 'save_map.sh'))).resolve()
-    if not script.exists():
-        raise RuntimeError(f'map save script not found: {script}')
-
-    env = os.environ.copy()
-    env.setdefault('OMNI_HOME', str(PROJECT_ROOT))
-    env.setdefault('OMNI_MAPS_DIR', str(maps_dir))
-
-    timeout_sec = int(os.environ.get('TELEOP_MAP_SAVE_TIMEOUT_SEC', '45'))
-    completed = subprocess.run(
-        [str(script), name],
-        cwd=str(PROJECT_ROOT),
-        env=env,
-        text=True,
-        capture_output=True,
-        timeout=timeout_sec,
-        check=False,
+    result = run_project_script(
+        'OMNI_SAVE_MAP_SCRIPT',
+        'save_map.sh',
+        [name],
+        timeout_env='TELEOP_MAP_SAVE_TIMEOUT_SEC',
+        default_timeout_sec=60,
     )
-
-    if completed.returncode != 0:
-        raise RuntimeError(
-            'map save failed: '
-            + (completed.stderr.strip() or completed.stdout.strip() or f'exit code {completed.returncode}')
-        )
 
     saved_dir = maps_dir / name
     return {
         'name': name,
-        'stdout': completed.stdout.strip(),
-        'stderr': completed.stderr.strip(),
+        **result,
         'map': map_entry(saved_dir) if saved_dir.exists() else None,
+    }
+
+
+def reset_slam_map() -> dict:
+    return run_project_script(
+        'OMNI_RESET_SLAM_SCRIPT',
+        'reset_slam.sh',
+        timeout_env='TELEOP_SLAM_RESET_TIMEOUT_SEC',
+        default_timeout_sec=20,
+    )
+
+
+def start_new_map() -> dict:
+    return run_project_script(
+        'OMNI_START_NEW_MAP_SCRIPT',
+        'start_new_map.sh',
+        timeout_env='TELEOP_START_NEW_MAP_TIMEOUT_SEC',
+        default_timeout_sec=25,
+    )
+
+
+def load_saved_map(raw_name: str | None) -> dict:
+    name = sanitize_map_name(raw_name)
+    map_dir = get_maps_dir() / name
+    if not map_dir.exists() or not map_dir.is_dir():
+        raise ValueError(f'saved map not found: {name}')
+
+    result = run_project_script(
+        'OMNI_LOAD_MAP_SCRIPT',
+        'load_map.sh',
+        [name],
+        timeout_env='TELEOP_MAP_LOAD_TIMEOUT_SEC',
+        default_timeout_sec=35,
+    )
+    return {
+        'name': name,
+        **result,
+        'map': map_entry(map_dir),
     }
 
 
@@ -468,6 +545,10 @@ class TeleopWebNode(Node):
         with self.state_lock:
             return copy.deepcopy(self.last_map_preview)
 
+    def clear_map_snapshot(self) -> None:
+        with self.state_lock:
+            self.last_map_preview = None
+
     def get_scan_snapshot(self) -> dict | None:
         with self.state_lock:
             return copy.deepcopy(self.last_scan_preview)
@@ -596,6 +677,72 @@ def api_save_map():
         return jsonify({'ok': False, 'error': 'map save timed out'}), 504
     except RuntimeError as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    return jsonify({
+        'ok': True,
+        'result': result,
+        'maps_dir': str(get_maps_dir()),
+        'maps': list_saved_maps(),
+    })
+
+
+@app.route('/api/maps/start_new', methods=['POST'])
+def api_start_new_map():
+    global teleop_node
+    try:
+        result = start_new_map()
+    except subprocess.TimeoutExpired:
+        return jsonify({'ok': False, 'error': 'start new map timed out'}), 504
+    except RuntimeError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    if teleop_node is not None:
+        teleop_node.clear_map_snapshot()
+
+    return jsonify({
+        'ok': True,
+        'result': result,
+        'maps_dir': str(get_maps_dir()),
+        'maps': list_saved_maps(),
+    })
+
+
+@app.route('/api/slam/reset', methods=['POST'])
+def api_reset_slam():
+    global teleop_node
+    try:
+        result = reset_slam_map()
+    except subprocess.TimeoutExpired:
+        return jsonify({'ok': False, 'error': 'SLAM reset timed out'}), 504
+    except RuntimeError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    if teleop_node is not None:
+        teleop_node.clear_map_snapshot()
+
+    return jsonify({
+        'ok': True,
+        'result': result,
+        'maps_dir': str(get_maps_dir()),
+        'maps': list_saved_maps(),
+    })
+
+
+@app.route('/api/maps/load', methods=['POST'])
+def api_load_map():
+    global teleop_node
+    payload = request.get_json(force=True, silent=True) or {}
+    try:
+        result = load_saved_map(payload.get('name'))
+    except ValueError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 400
+    except subprocess.TimeoutExpired:
+        return jsonify({'ok': False, 'error': 'map load timed out'}), 504
+    except RuntimeError as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    if teleop_node is not None:
+        teleop_node.clear_map_snapshot()
 
     return jsonify({
         'ok': True,
